@@ -37,6 +37,8 @@ public final class GrantStore {
 
     public void revoke(Grant grant) { grants.remove(grant); }
 
+    public void clear() { grants.clear(); }
+
     public List<Grant> active() { purgeStale(); return List.copyOf(grants); }
 
     void purgeStale() {

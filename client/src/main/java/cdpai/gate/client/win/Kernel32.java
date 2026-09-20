@@ -35,6 +35,11 @@ public final class Kernel32 {
         ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
     public static final MethodHandle CreateEventW = downcall(LIB, "CreateEventW", FunctionDescriptor.of(
         ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+    /// Cancels pending I/O for a handle from ANY thread, without closing it -- the safe way to
+    /// wake a thread blocked in GetOverlappedResult from elsewhere (e.g. a grant-expiry sweep),
+    /// as opposed to closing the handle out from under the thread that owns it.
+    public static final MethodHandle CancelIoEx = downcall(LIB, "CancelIoEx", FunctionDescriptor.of(
+        ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
 
     // Best-effort cleanup/query calls whose failures are ignored or which never fail meaningfully
     // here -- no capture-state needed.

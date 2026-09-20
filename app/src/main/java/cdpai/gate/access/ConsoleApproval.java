@@ -1,7 +1,5 @@
 package cdpai.gate.access;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Scanner;
@@ -23,7 +21,6 @@ public final class ConsoleApproval implements Approval {
         System.out.printf("%-6s %-28s %-9s %-16s %-8s %s%n",
             "HOP", "IMAGE", "DESCEND", "CATEGORY", "CAP(min)", "BOUND BY");
 
-        var suggested = -1;
         for (var hop = 0; hop < chain.size(); hop++) {
             var node = chain.get(hop);
             var hasParent = hop + 1 < chain.size();
@@ -31,9 +28,8 @@ public final class ConsoleApproval implements Approval {
             var cap = DurationCaps.compute(category, hop, node.descendantCount());
             System.out.printf("%-6d %-28s %-9d %-16s %-8d %s%n",
                 hop, node.imageName(), node.descendantCount(), category, cap.minutes(), cap.boundBy());
-            if (suggested < 0 && hop > 0 && cap.minutes() > 0 && materiallyLongerLived(chain.get(0), node))
-                suggested = hop;
         }
+        var suggested = AnchorSuggestion.suggest(chain, tree);
 
         if (suggested < 0) {
             System.out.println("no anchor above the client looks materially longer-lived -- type a hop number by hand, or 'n' to deny");
@@ -65,15 +61,5 @@ public final class ConsoleApproval implements Approval {
 
     static int parseHopOrDeny(String s) {
         try { return Integer.parseInt(s); } catch (NumberFormatException e) { return -1; }
-    }
-
-    static boolean materiallyLongerLived(AncestryNode client, AncestryNode candidate) {
-        var clientAge = ageSeconds(client);
-        var candidateAge = ageSeconds(candidate);
-        return candidateAge > clientAge + 5;
-    }
-
-    static long ageSeconds(AncestryNode node) {
-        return node.startInstant().map(s -> Duration.between(s, Instant.now()).toSeconds()).orElse(0L);
     }
 }

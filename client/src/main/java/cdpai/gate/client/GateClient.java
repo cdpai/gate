@@ -38,6 +38,10 @@ public final class GateClient implements AutoCloseable {
 
     public String receive() { return io.readFrame(); }
 
+    /// Aborts a pending receive() from another thread -- the timeout mechanism for a CLI caller
+    /// that does not want to block forever waiting for a reply that never comes.
+    public void cancelPendingIo() { io.cancelPendingIo(); }
+
     @Override public void close() {
         io.close();
     }

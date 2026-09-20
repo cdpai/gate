@@ -126,6 +126,14 @@ public final class PipeIo implements AutoCloseable {
         return countBox.get(ValueLayout.JAVA_INT, 0);
     }
 
+    /// Aborts whatever ReadFile/WriteFile is currently pending on this pipe, from ANY thread,
+    /// without closing the handle -- so the thread blocked in readFrame() wakes with an exception
+    /// and unwinds through its own normal cleanup (which does the actual close()), rather than
+    /// racing a cross-thread close() against native memory this object still owns.
+    public void cancelPendingIo() {
+        try { CancelIoEx.invoke(readHandle, MemorySegment.NULL); } catch (Throwable ignored) {}
+    }
+
     @Override public void close() {
         try { CloseHandle.invoke(readHandle); } catch (Throwable ignored) {}
         if (writeHandle.address() != readHandle.address()) {
