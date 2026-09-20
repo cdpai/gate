@@ -57,14 +57,25 @@ final class ApprovalWindow {
             + " · grant dies when the anchor exits, whatever the clock says");
         status.setStyle("-fx-font-size: 10; -fx-text-fill: #777;");
 
-        var root = new VBox(10, header(), instructionLine(), table.node(), chips.node(), buttons, status);
+        var ancestryScroll = new ScrollPane(table.node());
+        ancestryScroll.setFitToWidth(true);
+        ancestryScroll.setPrefHeight(Math.min(220, 34 + table.rows.size() * 24));
+        ancestryScroll.setMaxHeight(220);
+
+        var root = new VBox(10, header(), instructionLine(), ancestryScroll, chips.node(), buttons, status);
         root.setPadding(new Insets(14));
         root.setPrefWidth(620);
 
         table.onSelectionChange(this::onAnchorChanged);
         var suggested = AnchorSuggestion.suggest(chain, tree);
-        var firstSelectable = table.selectableHopsAscending().stream().findFirst().orElse(-1);
-        table.selectHop(suggested >= 0 ? suggested : firstSelectable);
+        // Fall back to the BROADEST (deepest) selectable hop, not the narrowest -- when nothing
+        // looks "materially longer-lived" than the client, defaulting to the client itself would
+        // guarantee a re-prompt on every single future invocation, which is precisely the failure
+        // this whole design exists to prevent. The human still confirms; this only changes what
+        // is pre-selected for them.
+        var selectableHops = table.selectableHopsAscending();
+        var fallback = selectableHops.isEmpty() ? -1 : selectableHops.get(selectableHops.size() - 1);
+        table.selectHop(suggested >= 0 ? suggested : fallback);
         onAnchorChanged();
 
         var scene = new Scene(root);

@@ -33,15 +33,38 @@ public final class ProcessTree {
             .toList();
     }
 
-    /// From the given pid up to the root (the process with no visible parent), nearest first.
-    public List<AncestryNode> chainFrom(long pid) {
-        var chain = new ArrayList<AncestryNode>();
+    /// One link of a parent-pid walk, with nothing decorated on yet.
+    public record RawLink(long pid, String imagePath, java.util.Optional<java.time.Instant> startInstant) {}
+
+    /// The pure parent-pid walk, with NO full-system enumeration first -- call this before
+    /// ProcessTree.snapshot(), not after. Measured on this machine: allProcesses() (which snapshot()
+    /// needs, to compute descendant counts) takes 60-70ms even with only ~400 processes running.
+    /// That is long enough for a genuinely short-lived shell wrapper -- one that exists only to
+    /// fork/exec the next stage of a pipeline -- to have already exited by the time the walk would
+    /// otherwise begin, permanently truncating the chain above it (a dead process's parent can no
+    /// longer be queried at all, by anyone). Reproduced directly: the same command, walked
+    /// immediately, reached the real session root seven hops up; walked after a snapshot, it broke
+    /// after two hops. The chain is the part of this design that must not be shortened by an
+    /// avoidable delay; descendant counts are already an accepted snapshot per the design doc, so
+    /// they can safely be computed second.
+    public static List<RawLink> rawChain(long pid) {
+        var chain = new ArrayList<RawLink>();
         for (var h = ProcessHandle.of(pid); h.isPresent(); h = h.get().parent()) {
-            var p = h.get();
-            var info = p.info();
-            chain.add(new AncestryNode(p.pid(), info.command().orElse("(unknown)"),
-                info.startInstant(), descendantCount(p.pid())));
+            var info = h.get().info();
+            chain.add(new RawLink(h.get().pid(), info.command().orElse("(unknown)"), info.startInstant()));
         }
         return chain;
     }
+
+    /// Attaches this snapshot's descendant counts to an already-captured raw chain.
+    public List<AncestryNode> decorate(List<RawLink> raw) {
+        return raw.stream()
+            .map(l -> new AncestryNode(l.pid(), l.imagePath(), l.startInstant(), descendantCount(l.pid())))
+            .toList();
+    }
+
+    /// Convenience for read-only/diagnostic callers that don't care about the ordering above
+    /// (there is already a snapshot in hand, or the timing sensitivity doesn't apply). The real
+    /// connection-handling path in GateServer does NOT use this -- it calls rawChain() first.
+    public List<AncestryNode> chainFrom(long pid) { return decorate(rawChain(pid)); }
 }

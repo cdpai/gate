@@ -70,8 +70,11 @@ public final class GateServer {
 
     void handleConnection(NamedPipeServer.Accepted accepted) {
         var peer = accepted.peer();
+        // Raw chain FIRST, before the (measurably slower) full-system snapshot -- see
+        // ProcessTree.rawChain's own doc for why this order is load-bearing, not stylistic.
+        var raw = ProcessTree.rawChain(peer.pid());
         var tree = ProcessTree.snapshot();
-        var chain = tree.chainFrom(peer.pid());
+        var chain = tree.decorate(raw);
 
         var grant = grants.findValid(peer.imagePath(), chain).orElse(null);
         if (grant == null) {
