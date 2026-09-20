@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 
 import static cdpai.gate.client.win.Kernel32.LocalFree;
 import static cdpai.gate.client.win.Kernel32.lastError;
+import static cdpai.gate.client.win.Win32.newCaptureSegment;
 import static cdpai.gate.win.Advapi32.*;
 
 /// Builds a SECURITY_ATTRIBUTES whose DACL grants full access to this Windows user only, and to
@@ -21,10 +22,11 @@ public final class UserOnlySecurity {
         var sddlSeg = arena.allocateFrom(sddl, StandardCharsets.UTF_16LE);
 
         var sdBox = arena.allocate(ValueLayout.ADDRESS);
+        var capture = newCaptureSegment(arena);
         try {
             if ((int) ConvertStringSecurityDescriptorToSecurityDescriptorW.invoke(
-                    sddlSeg, SDDL_REVISION_1, sdBox, MemorySegment.NULL) == 0)
-                throw lastError("ConvertStringSecurityDescriptorToSecurityDescriptorW");
+                    capture, sddlSeg, SDDL_REVISION_1, sdBox, MemorySegment.NULL) == 0)
+                throw lastError("ConvertStringSecurityDescriptorToSecurityDescriptorW", capture);
         } catch (Throwable t) { throw t instanceof RuntimeException r ? r : new RuntimeException(t); }
 
         // SECURITY_ATTRIBUTES { DWORD nLength; LPVOID lpSecurityDescriptor; BOOL bInheritHandle; } -- 24 bytes on x64

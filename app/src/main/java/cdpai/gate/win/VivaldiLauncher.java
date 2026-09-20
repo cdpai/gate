@@ -8,6 +8,7 @@ import cdpai.gate.client.win.PipeIo;
 
 import static cdpai.gate.client.win.Kernel32.CloseHandle;
 import static cdpai.gate.client.win.Kernel32.lastError;
+import static cdpai.gate.client.win.Win32.newCaptureSegment;
 import static cdpai.gate.win.ProcessLaunchApi.*;
 
 /// Launches Vivaldi with --remote-debugging-pipe and owns the resulting fd3/fd4 pair -- the sole
@@ -42,9 +43,12 @@ public final class VivaldiLauncher {
         var hChildWrite  = arena.allocate(ValueLayout.ADDRESS);  // child fd4 -> we read
         var hParentRead  = arena.allocate(ValueLayout.ADDRESS);
 
+        var capture = newCaptureSegment(arena);
         try {
-            if ((int) CreatePipe.invoke(hChildRead, hParentWrite, sa, 0) == 0) throw lastError("CreatePipe A");
-            if ((int) CreatePipe.invoke(hParentRead, hChildWrite, sa, 0) == 0) throw lastError("CreatePipe B");
+            if ((int) CreatePipe.invoke(capture, hChildRead, hParentWrite, sa, 0) == 0)
+                throw lastError("CreatePipe A", capture);
+            if ((int) CreatePipe.invoke(capture, hParentRead, hChildWrite, sa, 0) == 0)
+                throw lastError("CreatePipe B", capture);
 
             // our own ends must NOT be inherited by the child
             SetHandleInformation.invoke(hParentWrite.get(ValueLayout.ADDRESS, 0), HANDLE_FLAG_INHERIT, 0);
@@ -66,10 +70,10 @@ public final class VivaldiLauncher {
 
         int ok;
         try {
-            ok = (int) CreateProcessW.invoke(MemorySegment.NULL, cmdline, MemorySegment.NULL,
+            ok = (int) CreateProcessW.invoke(capture, MemorySegment.NULL, cmdline, MemorySegment.NULL,
                 MemorySegment.NULL, 1, CREATE_NO_WINDOW, MemorySegment.NULL, MemorySegment.NULL, si, pi);
         } catch (Throwable t) { throw new RuntimeException(t); }
-        if (ok == 0) throw lastError("CreateProcessW(" + exePath + ")");
+        if (ok == 0) throw lastError("CreateProcessW(" + exePath + ")", capture);
 
         // the child now holds its own inherited duplicates of these; our copies are just leaked
         // handle-table slots from here on

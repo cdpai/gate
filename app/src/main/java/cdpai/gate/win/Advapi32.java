@@ -3,29 +3,26 @@ package cdpai.gate.win;
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
 
+import static cdpai.gate.client.win.Win32.downcall;
+
 /// Advapi32 FFM bindings: resolving the current user's SID and turning an SDDL string into a
 /// security descriptor, so the pipe's DACL can be restricted to this Windows user only.
+///
+/// Every handle here is built with Win32.downcall, so its first argument at every call site is a
+/// capture-state segment (Win32.newCaptureSegment / Win32.lastErrorFrom).
 public final class Advapi32 {
 
-    static final Linker LK = Linker.nativeLinker();
     static final SymbolLookup LIB = SymbolLookup.libraryLookup("advapi32.dll", Arena.global());
-    static final SymbolLookup K32 = SymbolLookup.libraryLookup("kernel32.dll", Arena.global());
 
-    static MethodHandle fn(SymbolLookup lib, String name, FunctionDescriptor fd) {
-        return LK.downcallHandle(lib.find(name).orElseThrow(() -> new RuntimeException("no " + name)), fd);
-    }
-
-    public static final MethodHandle GetCurrentProcess = fn(K32, "GetCurrentProcess",
-        FunctionDescriptor.of(ValueLayout.ADDRESS));
-    public static final MethodHandle OpenProcessToken = fn(LIB, "OpenProcessToken", FunctionDescriptor.of(
+    public static final MethodHandle OpenProcessToken = downcall(LIB, "OpenProcessToken", FunctionDescriptor.of(
         ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
-    public static final MethodHandle GetTokenInformation = fn(LIB, "GetTokenInformation", FunctionDescriptor.of(
+    public static final MethodHandle GetTokenInformation = downcall(LIB, "GetTokenInformation", FunctionDescriptor.of(
         ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
         ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
-    public static final MethodHandle ConvertSidToStringSidW = fn(LIB, "ConvertSidToStringSidW",
+    public static final MethodHandle ConvertSidToStringSidW = downcall(LIB, "ConvertSidToStringSidW",
         FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
     public static final MethodHandle ConvertStringSecurityDescriptorToSecurityDescriptorW =
-        fn(LIB, "ConvertStringSecurityDescriptorToSecurityDescriptorW", FunctionDescriptor.of(
+        downcall(LIB, "ConvertStringSecurityDescriptorToSecurityDescriptorW", FunctionDescriptor.of(
             ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
 
     public static final int
