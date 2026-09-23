@@ -31,16 +31,23 @@ final class SendCommand implements Callable<Integer> {
         req.set("params", mapper.readTree(paramsJson));
         try (var client = gate.connect()) {
             System.err.println("cdpg: approved " + client.grant());
-            if (targetId != null) {
-                var sid = attach(client, mapper);
-                if (sid == null) return 1;
-                req.put("sessionId", sid);
-            }
-            client.send(req.toString());
+            // The clock covers the attach too: a tab that never answers must not hang the command.
             var watchdog = Thread.ofVirtual().start(() -> {
-                try { Thread.sleep(timeoutMs); client.cancelPendingIo(); } catch (InterruptedException ignored) {}
+                try { Thread.sleep(timeoutMs); } catch (InterruptedException e) { return; }
+                // cancelPendingIo does not reliably unblock a pipe read, so end the process: a CLI that hangs
+                // is worse than one that says why it stopped.
+                System.err.println("cdpg: no reply within " + timeoutMs + " ms (a background tab that is not loaded -- Vivaldi restores tabs lazily after a restart -- or is frozen does not"
+                    + " answer until it is shown: use a visible tab, or cdpg send Target.activateTarget {\"targetId\":...} first, which brings it forward)");
+                System.exit(2);
             });
             try {
+                if (targetId != null) {
+                    var sid = attach(client, mapper);
+                    if (sid == null) { watchdog.interrupt(); return 1; }
+                    System.err.println("cdpg: attached to " + targetId);
+                    req.put("sessionId", sid);
+                }
+                client.send(req.toString());
                 String raw;
                 while ((raw = client.receive()) != null) {
                     var obj = mapper.readTree(raw);
