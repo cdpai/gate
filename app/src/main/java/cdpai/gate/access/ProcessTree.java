@@ -47,11 +47,22 @@ public final class ProcessTree {
     /// after two hops. The chain is the part of this design that must not be shortened by an
     /// avoidable delay; descendant counts are already an accepted snapshot per the design doc, so
     /// they can safely be computed second.
+    ///
+    /// Where the Windows chain breaks at an MSYS or Cygwin program, whose emulated fork and exec
+    /// leave dead Windows parents behind, it is continued through that installation's own process
+    /// table (MsysProcessTable) to the nearest live parent.
     public static List<RawLink> rawChain(long pid) {
         var chain = new ArrayList<RawLink>();
-        for (var h = ProcessHandle.of(pid); h.isPresent(); h = h.get().parent()) {
+        var seen = new HashSet<Long>();
+        var h = ProcessHandle.of(pid);
+        while (h.isPresent() && seen.add(h.get().pid())) {
             var info = h.get().info();
-            chain.add(new RawLink(h.get().pid(), info.command().orElse("(unknown)"), info.startInstant()));
+            var image = info.command().orElse("(unknown)");
+            chain.add(new RawLink(h.get().pid(), image, info.startInstant()));
+            var next = h.get().parent();
+            var child = chain.size() > 1 ? chain.get(chain.size() - 2).pid() : -1L;
+            if (next.isEmpty()) next = MsysProcessTable.parentOf(h.get().pid(), image, child).filter(p -> !seen.contains(p)).flatMap(ProcessHandle::of);
+            h = next;
         }
         return chain;
     }
