@@ -10,19 +10,20 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
-/// The duration chip row: "choosing a broader anchor visibly removes duration options" (design
-/// doc). Chips above the current cap are shown, not hidden, but struck through and unreachable by
-/// keyboard -- an honest list of what exists, matching the mockup rather than pretending the
-/// longer durations don't exist at all.
+/// The chip row. Chips above the current cap are shown struck through and cannot be reached, so
+/// choosing a broader anchor or a wider scope visibly removes the longer durations.
 final class DurationChipsView {
 
+    final DurationChips.Chip[] chips;
     final HBox row = new HBox(6);
     final Label capLine = new Label();
     final Map<Integer, Label> chipNodes = new LinkedHashMap<>();
     int cap, selected;
+    String capReason = "";
 
-    DurationChipsView() {
-        for (var chip : DurationChips.ALL) {
+    DurationChipsView(DurationChips.Chip[] chips) {
+        this.chips = chips;
+        for (var chip : chips) {
             var l = new Label(chip.label());
             chipNodes.put(chip.minutes(), l);
             row.getChildren().add(l);
@@ -33,14 +34,15 @@ final class DurationChipsView {
 
     Node node() { return new VBox(4, capLine, row); }
 
-    void setCap(int capMinutes) {
-        this.cap = capMinutes;
-        this.selected = DurationChips.largestFitting(capMinutes);
+    void setCap(int capMinutes, Integer requested, String reason) {
+        cap = capMinutes;
+        capReason = reason;
+        selected = DurationChips.preselect(chips, capMinutes, requested);
         render();
     }
 
     void move(boolean right) {
-        var enabled = enabledMinutesAscending();
+        var enabled = enabledAscending();
         if (enabled.isEmpty()) return;
         var idx = Math.max(0, enabled.indexOf(selected));
         selected = enabled.get(right ? Math.min(idx + 1, enabled.size() - 1) : Math.max(idx - 1, 0));
@@ -49,32 +51,24 @@ final class DurationChipsView {
 
     int selectedMinutes() { return selected; }
 
-    List<Integer> enabledMinutesAscending() {
+    List<Integer> enabledAscending() {
         var list = new ArrayList<Integer>();
-        for (var chip : DurationChips.ALL) if (chip.minutes() <= cap) list.add(chip.minutes());
+        for (var chip : chips) if (chip.minutes() <= cap) list.add(chip.minutes());
         return list;
     }
 
     void render() {
-        capLine.setText(cap <= 0 ? "duration — no duration available at this anchor"
-            : "duration — capped at " + AncestryTableView.label(cap) + " by the selected anchor");
-        for (var chip : DurationChips.ALL) {
-            var l = chipNodes.get(chip.minutes());
+        capLine.setText(cap <= 0 ? "duration: none available here"
+            : "duration: at most " + DurationChips.label(cap) + (capReason.isEmpty() ? "" : ", set by " + capReason));
+        for (var chip : chips) {
             var enabled = chip.minutes() <= cap;
-            l.setStyle(chip.minutes() == selected ? selectedStyle() : enabled ? baseStyle() : disabledStyle());
+            chipNodes.get(chip.minutes()).setStyle(chip.minutes() == selected ? SELECTED : enabled ? BASE : DISABLED);
         }
     }
 
-    static String baseStyle() {
-        return "-fx-border-color: #999; -fx-padding: 3 9; -fx-font-size: 11; -fx-background-color: white;";
-    }
-
-    static String selectedStyle() {
-        return baseStyle() + " -fx-background-color: #2e6da8; -fx-text-fill: white; -fx-border-color: #1c4d80;";
-    }
-
-    static String disabledStyle() {
-        return "-fx-border-color: #ddd; -fx-padding: 3 9; -fx-font-size: 11;"
+    static final String
+        BASE = "-fx-border-color: #999; -fx-padding: 3 9; -fx-font-size: 11; -fx-background-color: white;",
+        SELECTED = BASE + " -fx-background-color: #2e6da8; -fx-text-fill: white; -fx-border-color: #1c4d80;",
+        DISABLED = "-fx-border-color: #ddd; -fx-padding: 3 9; -fx-font-size: 11;"
             + " -fx-background-color: #e4e4e4; -fx-text-fill: #aaa; -fx-strikethrough: true;";
-    }
 }

@@ -23,15 +23,19 @@ import static cdpai.gate.win.ProcessLaunchApi.*;
 public final class VivaldiLauncher {
 
     public static VivaldiProcess launch(String exePath, String userDataDir) {
+        return launch(exePath, userDataDir, userDataDir == null ? List.of() : List.of("about:blank"));
+    }
+
+    public static VivaldiProcess launch(String exePath, String userDataDir, List<String> extraArgs) {
         // Scratch only: everything allocated here is done being useful the moment CreateProcessW
         // returns, so it is closed before this method returns rather than held for the process's
         // lifetime like PipeIo's own buffers are.
         try (var arena = Arena.ofConfined()) {
-            return launch(arena, exePath, userDataDir);
+            return launch(arena, exePath, userDataDir, extraArgs);
         }
     }
 
-    static VivaldiProcess launch(Arena arena, String exePath, String userDataDir) {
+    static VivaldiProcess launch(Arena arena, String exePath, String userDataDir, List<String> extraArgs) {
         // SECURITY_ATTRIBUTES { DWORD nLength; LPVOID lpSD; BOOL bInheritHandle; } -- 24 bytes on x64
         var sa = arena.allocate(24);
         sa.set(ValueLayout.JAVA_INT, 0, 24);
@@ -66,7 +70,7 @@ public final class VivaldiLauncher {
         si.set(ValueLayout.ADDRESS, 72, fdTable);
 
         var pi = arena.allocate(24);
-        var cmdline = arena.allocateFrom(commandLine(exePath, userDataDir), StandardCharsets.UTF_16LE);
+        var cmdline = arena.allocateFrom(commandLine(exePath, userDataDir, extraArgs), StandardCharsets.UTF_16LE);
 
         int ok;
         try {
@@ -88,12 +92,15 @@ public final class VivaldiLauncher {
         return new VivaldiProcess(pid, processHandle, cdp);
     }
 
-    static String commandLine(String exePath, String userDataDir) {
-        var parts = userDataDir == null
-            ? List.of("--remote-debugging-pipe", "--no-first-run", "--no-default-browser-check", "about:blank")
-            : List.of("--remote-debugging-pipe", "--no-first-run", "--no-default-browser-check",
-                "--user-data-dir=" + userDataDir, "about:blank");
+    static String commandLine(String exePath, String userDataDir, List<String> extraArgs) {
+        var parts = new java.util.ArrayList<>(List.of("--remote-debugging-pipe", "--no-first-run", "--no-default-browser-check"));
+        if (userDataDir != null) parts.add(quoteIfNeeded("--user-data-dir=" + userDataDir));
+        extraArgs.forEach(a -> parts.add(quoteIfNeeded(a)));
         return "\"" + exePath + "\" " + String.join(" ", parts);
+    }
+
+    static String quoteIfNeeded(String arg) {
+        return arg.contains(" ") && !arg.startsWith("\"") ? "\"" + arg + "\"" : arg;
     }
 
     static MemorySegment buildMsvcrtFdTable(Arena arena, MemorySegment childRead, MemorySegment childWrite) {

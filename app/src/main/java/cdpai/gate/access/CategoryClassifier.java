@@ -9,10 +9,26 @@ import static cdpai.gate.access.KnownPrograms.*;
 /// model, so this stays a small heuristic rather than a large one.
 public final class CategoryClassifier {
 
-    public static AnchorCategory classify(AncestryNode node, boolean hasParent, ProcessTree tree) {
+    /// `hop`/`chainSize` locate this node within its own ancestry chain -- needed to tell apart
+    /// two things `!hasParent` alone cannot distinguish: genuinely reaching the top of a resolvable
+    /// chain (several hops climbed, then the trail runs out -- almost always the real desktop
+    /// shell) versus a chain of exactly one node, where even the CLIENT's own immediate parent
+    /// could not be resolved. The second case is a real, observed race (a launcher that exits
+    /// right after spawning its child -- e.g. a detached `Start-Process`, common from automation --
+    /// beats cdpgate to the punch even though `ProcessTree.rawChain` is already called as early as
+    /// possible), not evidence the client IS the session root. Classifying it as SESSION_ROOT
+    /// there made the connection permanently unapprovable (0-minute cap, no other row exists to
+    /// pick instead) -- found live, 2026-09-22, testing a one-shot `cdpg send` launched via a
+    /// detached PowerShell `Start-Process`. Treating an isolated, unnamed node as an ordinary
+    /// process instead degrades to "approvable but may re-prompt on the next invocation" rather
+    /// than "cannot be approved at all" -- a real regression is a dead end, not a warning.
+    public static AnchorCategory classify(AncestryNode node, int hop, int chainSize, ProcessTree tree) {
         var name = node.imageName();
+        var hasParent = hop + 1 < chainSize;
+        var isolatedNode = hop == 0 && chainSize == 1;
 
-        if (!hasParent || SESSION_ROOTS.contains(name)) return AnchorCategory.SESSION_ROOT;
+        if (SESSION_ROOTS.contains(name)) return AnchorCategory.SESSION_ROOT;
+        if (!hasParent && !isolatedNode) return AnchorCategory.SESSION_ROOT;
 
         if (TERMINAL_HOSTS.contains(name) || childrenAreMostlyShells(node.pid(), tree))
             return AnchorCategory.TERMINAL_HOST;

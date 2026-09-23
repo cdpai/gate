@@ -32,6 +32,9 @@ public final class PipeIo implements AutoCloseable {
     final MemorySegment writeCapture = newCaptureSegment(arena);
     final MemorySegment readOverlapped, writeOverlapped;   // null unless overlapped
     MemorySegment writeBuf = arena.allocate(INITIAL_BUF);
+    byte[] carry = new byte[0];
+    int carryPos;
+    final java.util.concurrent.atomic.AtomicBoolean closed = new java.util.concurrent.atomic.AtomicBoolean();
 
     public PipeIo(MemorySegment duplexHandle) {
         this.readHandle = duplexHandle;
@@ -67,8 +70,15 @@ public final class PipeIo implements AutoCloseable {
         } catch (Throwable t) { throw t instanceof RuntimeException r ? r : new RuntimeException(t); }
     }
 
+    /// One ReadFile on a byte-stream pipe can return several frames at once, or part of one;
+    /// whatever follows a frame's NUL is kept for the next call rather than dropped.
     public String readFrame() {
         var acc = new ByteArrayOutputStream();
+        while (carryPos < carry.length) {
+            var b = carry[carryPos++];
+            if (b == 0) return acc.toString(StandardCharsets.UTF_8);
+            acc.write(b);
+        }
         try {
             while (true) {
                 int got;
@@ -84,10 +94,10 @@ public final class PipeIo implements AutoCloseable {
                     got = readCount.get(ValueLayout.JAVA_INT, 0);
                 }
                 if (got <= 0) return null;
+                var chunk = readBuf.asSlice(0, got).toArray(ValueLayout.JAVA_BYTE);
                 for (var i = 0; i < got; i++) {
-                    var b = readBuf.get(ValueLayout.JAVA_BYTE, i);
-                    if (b == 0) return acc.toString(StandardCharsets.UTF_8);
-                    acc.write(b);
+                    if (chunk[i] == 0) { carry = chunk; carryPos = i + 1; return acc.toString(StandardCharsets.UTF_8); }
+                    acc.write(chunk[i]);
                 }
             }
         } catch (Throwable t) { throw t instanceof RuntimeException r ? r : new RuntimeException(t); }
@@ -131,10 +141,12 @@ public final class PipeIo implements AutoCloseable {
     /// and unwinds through its own normal cleanup (which does the actual close()), rather than
     /// racing a cross-thread close() against native memory this object still owns.
     public void cancelPendingIo() {
+        if (closed.get()) return;
         try { CancelIoEx.invoke(readHandle, MemorySegment.NULL); } catch (Throwable ignored) {}
     }
 
     @Override public void close() {
+        if (!closed.compareAndSet(false, true)) return;
         try { CloseHandle.invoke(readHandle); } catch (Throwable ignored) {}
         if (writeHandle.address() != readHandle.address()) {
             try { CloseHandle.invoke(writeHandle); } catch (Throwable ignored) {}
