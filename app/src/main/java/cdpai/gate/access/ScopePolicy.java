@@ -4,10 +4,12 @@ import java.net.URI;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /// Enforcement of a Scope over CDP traffic, as pure functions so it is testable without a browser.
 /// Domains match a target url's host exactly or as a subdomain, never as a pattern. Profiles are
@@ -41,6 +43,39 @@ public final class ScopePolicy {
             default -> Optional.empty();
         };
     }
+
+    /// Cookie calls sent to the browser itself (no session) act on one profile's whole jar: the
+    /// context named by `browserContextId`, or the browser's default context when none is named.
+    /// Cookies are scoped by PROFILE, never by domain -- a profile shares one jar across every site
+    /// (YouTube needs google.com's account cookies; any site can offer Google sign-in), so a
+    /// domain-filtered jar would break real sites in ways that are hard to debug. Domains scope tabs.
+    /// Calls on an attached tab's session already act in that tab's (approved) profile.
+    static final Set<String> STORAGE_COOKIES = Set.of("Storage.getCookies", "Storage.setCookies", "Storage.clearCookies");
+    static final Set<String> NETWORK_COOKIES = Set.of("Network.getAllCookies", "Network.getCookies", "Network.setCookie",
+        "Network.setCookies", "Network.deleteCookies", "Network.clearBrowserCookies");
+
+    public static boolean isCookieCall(String method) { return STORAGE_COOKIES.contains(method) || NETWORK_COOKIES.contains(method); }
+
+    /// Keeps a browser-level cookie call inside the approved profiles. A Storage call naming no
+    /// profile, when the default context is outside the scope and exactly one profile is approved,
+    /// is routed to that profile by writing its context into `params`; otherwise it is refused.
+    public static Optional<String> cookieJar(String method, ObjectNode params, Scope scope, String defaultContext,
+                                             Function<String, String> dirOf, Function<String, String> contextOf) {
+        if (!scope.profilesScoped() || !isCookieCall(method)) return Optional.empty();
+        if (allowsProfile(scope, dirOfNullable(dirOf, defaultContext)) && !params.hasNonNull("browserContextId")) return Optional.empty();
+        if (NETWORK_COOKIES.contains(method))
+            return Optional.of("cdpgate: " + method + " on the browser reads the default profile, which is outside the approved scope;"
+                + " use Storage.getCookies (cdpgate routes it to the approved profile) or send it on an attached tab's session");
+        var named = params.path("browserContextId").asText(null);
+        if (named != null) return allowsProfile(scope, dirOfNullable(dirOf, named)) ? Optional.empty()
+            : Optional.of("cdpgate: cookies of a profile outside the approved scope");
+        var only = scope.profiles().size() == 1 ? contextOf.apply(scope.profiles().get(0)) : null;
+        if (only == null) return Optional.of("cdpgate: name the profile -- pass browserContextId of an approved profile");
+        params.put("browserContextId", only);
+        return Optional.empty();
+    }
+
+    static String dirOfNullable(Function<String, String> dirOf, String ctx) { return ctx == null ? null : dirOf.apply(ctx); }
 
     public static boolean allowsUrl(Scope scope, String url) {
         if (!scope.domainsScoped()) return true;

@@ -17,7 +17,7 @@ import cdpai.gate.win.RemoteProcessInfo;
 /// exactly what they ask for. Everything is shown in full, in scrollable boxes where it is long.
 final class ApprovalParts {
 
-    static final String RED = "#b3261e", GREEN = "#2e7d32", GREY = "#666";
+    static final String RED = "#b3261e", GREEN = "#2e7d32", GREY = "#666", AMBER = "#9a6700";
 
     static Node header(Approval.Request r) {
         var name = new Label(r.chain().isEmpty() ? r.app() : r.chain().getFirst().imageName());
@@ -52,7 +52,11 @@ final class ApprovalParts {
             : line("profiles: " + String.join(", ", s.profiles().stream().map(d -> describe(d, r.profiles())).toList()), GREEN);
         var domains = s.domains() == null ? line("websites: ALL", RED) : line("websites: " + String.join(", ", s.domains()), GREEN);
         var minutes = line("asked for: " + (s.requestedMinutes() == null ? "not specified" : DurationChips.label(s.requestedMinutes())), GREY);
-        var box = new VBox(2, small("REQUESTED", "#777"), profiles, domains, minutes);
+        var cookies = s.profiles() == null
+            ? line("cookies: every site's cookies, in every profile", RED)
+            : line("cookies: every site's cookies in " + (s.profiles().size() == 1 ? "that profile" : "those profiles")
+                + " (a profile shares one cookie jar; websites limit tabs only)", s.domains() == null ? GREY : AMBER);
+        var box = new VBox(2, small("REQUESTED", "#777"), profiles, domains, cookies, minutes);
         if (s.unscoped()) box.getChildren().add(line("Every profile and every website. Approving needs the passphrase.", RED));
         return box;
     }

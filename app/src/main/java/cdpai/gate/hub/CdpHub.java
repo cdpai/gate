@@ -107,6 +107,12 @@ public final class CdpHub {
         var scope = scopes.getOrDefault(from, Scope.UNSCOPED);
         if (!scope.unscoped() && method.equals("Target.setAutoAttach") && !obj.has("sessionId"))
             return "cdpgate: browser-wide auto-attach is not available to a scoped connection; attach to targets one at a time";
+        if (!obj.has("sessionId") && ScopePolicy.isCookieCall(method)) {
+            var params = obj.get("params") instanceof ObjectNode p ? p : obj.putObject("params");
+            var jar = ScopePolicy.cookieJar(method, params, scope, placement == null ? null : placement.defaultContext.get(), dirOf,
+                placement == null ? d -> null : placement.contextOf);
+            if (jar.isPresent()) return jar.get();
+        }
         return ScopePolicy.deny(method, obj.path("params"), scope, inventory.view(), dirOf).orElse(null);
     }
 
