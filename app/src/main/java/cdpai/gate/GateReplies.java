@@ -53,6 +53,33 @@ final class GateReplies {
         return wrap(g);
     }
 
+    /// Who has access right now, as the access window shows it. No key material: public keys stay
+    /// in cdpgate, only their fingerprints are listed.
+    static String grants(GateServer server, ProfileMap profiles) {
+        var g = M.createObjectNode().put("ok", true);
+        var arr = g.putArray("grants");
+        for (var x : server.activeGrants()) {
+            var n = arr.addObject().put("mode", "attested").put("id", x.id()).put("client", x.clientImagePath())
+                .put("anchor", x.anchorImagePath()).put("anchorPid", x.anchorPid()).put("minutes", x.durationMinutes())
+                .put("expiresAt", x.expiresAt().toString()).put("live", server.liveConnections(x.id()));
+            scopeInto(n, x.scope(), profiles);
+        }
+        var now = java.time.Instant.now();
+        for (var k : server.keyedApps()) {
+            if (k.expired(now)) continue;
+            var n = arr.addObject().put("mode", "keyed").put("id", k.id()).put("app", k.app()).put("key", k.fingerprint())
+                .put("lastSeen", k.lastSeenImagePath()).put("flagged", k.flagged()).put("expiresAt", k.expiresAt().toString())
+                .put("live", server.liveConnections(k.id()));
+            scopeInto(n, k.scope(), profiles);
+        }
+        return wrap(g);
+    }
+
+    static void scopeInto(ObjectNode n, Scope s, ProfileMap profiles) {
+        if (s.domains() != null) s.domains().forEach(n.putArray("domains")::add);
+        if (s.profiles() != null) s.profiles().forEach(d -> n.withArray("profiles").add(profiles.nameOf(d)));
+    }
+
     static String wrap(ObjectNode body) { return M.createObjectNode().set("gate", body).toString(); }
 
     private GateReplies() {}

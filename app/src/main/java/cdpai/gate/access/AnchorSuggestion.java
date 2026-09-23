@@ -15,7 +15,7 @@ public final class AnchorSuggestion {
         for (var hop = 1; hop < chain.size(); hop++) {
             var node = chain.get(hop);
             var category = CategoryClassifier.classify(node, hop, chain.size(), tree);
-            var cap = DurationCaps.compute(category, hop, node.descendantCount());
+            var cap = DurationCaps.compute(category, Hops.effective(chain, hop), node.descendantCount());
             if (cap.minutes() > 0 && materiallyLongerLived(chain.get(0), node)) return hop;
         }
         return -1;
