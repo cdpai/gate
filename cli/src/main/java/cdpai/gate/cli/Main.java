@@ -8,7 +8,7 @@ import picocli.CommandLine.Command;
 @Command(name = "cdpg", mixinStandardHelpOptions = true, version = "cdpg 0.2",
     description = {"Gated CDP access through cdpgate's pipe.",
         "Start with `cdpg profiles`, then ask for only what you need: cdpg send Target.getTargets --profiles Work --domains youtube.com"},
-    subcommands = {ProfilesCommand.class, ApproveCommand.class, SendCommand.class, ListenCommand.class})
+    subcommands = {ProfilesCommand.class, GrantsCommand.class, ApproveCommand.class, SendCommand.class, ListenCommand.class})
 public final class Main implements Runnable {
 
     public static void main(String[] args) { System.exit(new CommandLine(new Main()).execute(args)); }

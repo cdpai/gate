@@ -38,8 +38,9 @@ final class ConnectionHandler {
             switch (hs.get().op()) {
                 case "profiles" -> { io.writeFrame(GateReplies.profiles(server.browser.browserName(),
                     server.browser.hub() != null, server.browser.profiles().entries())); io.close(); }
+                case "grants" -> { io.writeFrame(GateReplies.grants(server, server.browser.profiles())); io.close(); }
                 case "connect" -> connect(hs.get(), null, null);
-                default -> deny("unknown op " + hs.get().op(), "use op connect or profiles");
+                default -> deny("unknown op " + hs.get().op(), "use op connect, profiles or grants");
             }
         } catch (Exception e) { io.close(); }
     }

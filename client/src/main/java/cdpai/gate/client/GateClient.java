@@ -50,6 +50,14 @@ public final class GateClient implements AutoCloseable {
         }
     }
 
+    /// Ungated: every approval in force now -- mode, who, scope, time left, live connections.
+    public static JsonNode grants(String pipeName) {
+        try (var c = new GateClient(pipeName)) {
+            c.io.writeFrame(gateFrame(MAPPER.createObjectNode().put("v", 2).put("op", "grants")));
+            return c.readGateReply();
+        }
+    }
+
     void handshake(String app, ScopeRequest scope, GateKey key) {
         var req = MAPPER.createObjectNode().put("v", 2).put("op", "connect").put("app", app);
         scope.writeInto(req);

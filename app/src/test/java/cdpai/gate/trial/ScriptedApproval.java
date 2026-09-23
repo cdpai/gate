@@ -27,7 +27,7 @@ public final class ScriptedApproval implements Approval {
         if (hop < 0) hop = broadestSelectable(r);
         if (hop < 0) return Optional.empty();
         var node = r.chain().get(hop);
-        var cap = DurationCaps.compute(CategoryClassifier.classify(node, hop, r.chain().size(), r.tree()), hop, node.descendantCount(), r.requested());
+        var cap = DurationCaps.compute(CategoryClassifier.classify(node, hop, r.chain().size(), r.tree()), Hops.effective(r.chain(), hop), node.descendantCount(), r.requested());
         return Optional.of(new Decision(node, DurationChips.preselect(DurationChips.ATTESTED, cap.minutes(), r.requested().requestedMinutes()),
             cap.minutes(), r.requested()));
     }
@@ -38,7 +38,7 @@ public final class ScriptedApproval implements Approval {
             var n = r.chain().get(hop);
             var cat = CategoryClassifier.classify(n, hop, r.chain().size(), r.tree());
             if (cat == AnchorCategory.SESSION_ROOT || cat == AnchorCategory.TERMINAL_HOST) continue;
-            if (DurationCaps.compute(cat, hop, n.descendantCount()).minutes() > 0) best = hop;
+            if (DurationCaps.compute(cat, Hops.effective(r.chain(), hop), n.descendantCount()).minutes() > 0) best = hop;
         }
         return best;
     }
