@@ -49,23 +49,17 @@ public class ScopePolicyTrial {
         var kept = ScopePolicy.filterTargetInfos(infos, both, M, DIRS::get);
         check("getTargets keeps only the target matching both", kept.size() == 1 && kept.get(0).path("targetId").asText().equals("t1"));
 
-        // cookies: scoped by profile, never by domain
-        check("session-level cookie call passes (the tab's own profile)", jar("Network.getCookies", "{}", both, "ctxB", false).isEmpty());
-        check("cookies of the approved default profile pass, any site", jar("Storage.getCookies", "{}", both, "ctxA", true).isEmpty());
-        var routed = M.createObjectNode();
-        check("default outside scope, one profile approved: routed to it", ScopePolicy.cookieJar("Storage.getCookies", routed, both, "ctxB", DIRS::get,
-            d -> d.equals("Default") ? "ctxA" : null).isEmpty() && routed.path("browserContextId").asText().equals("ctxA"));
-        check("naming another profile's jar is refused", jar("Storage.getCookies", "{\"browserContextId\":\"ctxB\"}", both, "ctxA", true).length() > 0);
-        check("Network.getAllCookies on a default outside scope is refused", jar("Network.getAllCookies", "{}", both, "ctxB", true).length() > 0);
-        var stripped = (com.fasterxml.jackson.databind.node.ObjectNode) M.readTree("{\"browserContextId\":\"ctxA\"}");
-        check("naming the launch profile, in scope: id removed (the browser cannot resolve it)", ScopePolicy.cookieJar("Storage.getCookies",
-            stripped, both, "ctxA", DIRS::get, d -> null).isEmpty() && !stripped.has("browserContextId"));
-        var other = new Scope(null, List.of("Profile 2"), null);
-        check("naming the launch profile from another profile's grant: refused, not rerouted", jar("Storage.getCookies",
-            "{\"browserContextId\":\"ctxA\"}", other, "ctxA", true).length() > 0);
-        check("domain-only scope leaves the jar alone", jar("Storage.getCookies", "{}", domains, "ctxB", true).isEmpty());
-        check("two profiles approved, none named, default outside: refused", jar("Storage.getCookies", "{}",
-            new Scope(null, List.of("Default", "Profile 3"), null), "ctxB", true).length() > 0);
+        // cookies: scoped by profile, never by domain; Storage calls and browser-level Network calls reach
+        // the LAST-USED profile (ctxA = Default here unless a case says otherwise)
+        check("Network cookie call on a tab session passes (the tab's own profile)", jar("Network.getAllCookies", "{}", true, both, "ctxB").isEmpty());
+        check("Storage.getCookies while the last-used profile is approved passes, any site", jar("Storage.getCookies", "{}", false, both, "ctxA").isEmpty());
+        check("Storage.getCookies while another profile is last-used is refused", jar("Storage.getCookies", "{}", false, both, "ctxB").length() > 0);
+        check("... even when sent on a tab session (it still reads the last-used jar)", jar("Storage.getCookies", "{}", true, both, "ctxB").length() > 0);
+        check("the refusal points to the tab-session route", jar("Storage.getCookies", "{}", false, both, "ctxB").contains("--target"));
+        check("naming another profile's jar is refused", jar("Storage.getCookies", "{\"browserContextId\":\"ctxB\"}", false, both, "ctxA").length() > 0);
+        check("browser-level Network.getAllCookies with another profile last-used is refused", jar("Network.getAllCookies", "{}", false, both, "ctxB").length() > 0);
+        check("domain-only scope leaves the jar alone", jar("Storage.getCookies", "{}", false, domains, "ctxB").isEmpty());
+        check("an unidentified last-used context fails closed", jar("Storage.getCookies", "{}", false, both, "ctxX").length() > 0);
 
         var approved = new Scope(List.of("youtube.com"), List.of("Default", "Profile 2"), null);
         check("covers a narrower request", approved.covers(new Scope(List.of("studio.youtube.com"), List.of("Default"), null)));
@@ -84,10 +78,9 @@ public class ScopePolicyTrial {
         return ScopePolicy.deny(method, M.readTree(params), scope, known, DIRS::get).orElse("");
     }
 
-    static String jar(String method, String params, Scope scope, String defaultCtx, boolean browserLevel) throws Exception {
-        if (!browserLevel) return "";
-        return ScopePolicy.cookieJar(method, (com.fasterxml.jackson.databind.node.ObjectNode) M.readTree(params), scope, defaultCtx, DIRS::get,
-            d -> d.equals("Default") ? "ctxA" : null).orElse("");
+    static String jar(String method, String params, boolean onSession, Scope scope, String lastUsed) throws Exception {
+        return ScopePolicy.cookieJar(method, (com.fasterxml.jackson.databind.node.ObjectNode) M.readTree(params), onSession, scope,
+            lastUsed, DIRS::get).orElse("");
     }
 
     static JsonNode info(String id, String url, String ctx) {
