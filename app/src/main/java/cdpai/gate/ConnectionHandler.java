@@ -74,7 +74,7 @@ final class ConnectionHandler {
     void attested(CdpHub hub, Scope requested, String label, String firstCdpFrame) {
         var tree = ProcessTree.snapshot();
         var chain = tree.decorate(raw);
-        var grant = server.grants.findValid(peer.imagePath(), chain).filter(g -> g.scope().covers(requested)).orElse(null);
+        var grant = server.grants.findValid(peer.imagePath(), chain, requested).orElse(null);
         if (grant == null) {
             var d = server.approval.decide(request(Kind.ATTESTED, chain, tree, requested, label, null, null));
             if (d.isEmpty()) { deny("not approved", "the request was declined or its window closed"); return; }

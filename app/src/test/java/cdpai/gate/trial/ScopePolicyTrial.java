@@ -57,6 +57,12 @@ public class ScopePolicyTrial {
             d -> d.equals("Default") ? "ctxA" : null).isEmpty() && routed.path("browserContextId").asText().equals("ctxA"));
         check("naming another profile's jar is refused", jar("Storage.getCookies", "{\"browserContextId\":\"ctxB\"}", both, "ctxA", true).length() > 0);
         check("Network.getAllCookies on a default outside scope is refused", jar("Network.getAllCookies", "{}", both, "ctxB", true).length() > 0);
+        var stripped = (com.fasterxml.jackson.databind.node.ObjectNode) M.readTree("{\"browserContextId\":\"ctxA\"}");
+        check("naming the launch profile, in scope: id removed (the browser cannot resolve it)", ScopePolicy.cookieJar("Storage.getCookies",
+            stripped, both, "ctxA", DIRS::get, d -> null).isEmpty() && !stripped.has("browserContextId"));
+        var other = new Scope(null, List.of("Profile 2"), null);
+        check("naming the launch profile from another profile's grant: refused, not rerouted", jar("Storage.getCookies",
+            "{\"browserContextId\":\"ctxA\"}", other, "ctxA", true).length() > 0);
         check("domain-only scope leaves the jar alone", jar("Storage.getCookies", "{}", domains, "ctxB", true).isEmpty());
         check("two profiles approved, none named, default outside: refused", jar("Storage.getCookies", "{}",
             new Scope(null, List.of("Default", "Profile 3"), null), "ctxB", true).length() > 0);
