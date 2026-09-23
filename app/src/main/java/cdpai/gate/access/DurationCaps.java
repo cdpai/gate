@@ -20,6 +20,19 @@ public final class DurationCaps {
         return new Result(minutes, reason);
     }
 
+    /// The fourth cap: how much the request reaches. Every profile and every website earns an hour
+    /// at most, one of the two narrowed four hours, both narrowed nothing extra -- so the cheapest way
+    /// to a long approval is to ask for less.
+    public static Result compute(AnchorCategory category, int hopsFromRequester, int descendantCount, Scope scope) {
+        var base = compute(category, hopsFromRequester, descendantCount);
+        var byScope = BY_SCOPE_DIMENSIONS[scope.narrowedDimensions()];
+        return byScope < base.minutes()
+            ? new Result(byScope, scope.unscoped() ? "an unscoped request (every profile, every website)" : "a request narrowed only one way")
+            : base;
+    }
+
+    static final int[] BY_SCOPE_DIMENSIONS = {60, 240, 1440};
+
     static int byHopDistance(int hops) {
         if (hops <= 2) return 1440;
         if (hops == 3) return 480;

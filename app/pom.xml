@@ -27,6 +27,11 @@
             <version>${jackson.version}</version>
         </dependency>
         <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-toml</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
             <groupId>io.github.luvml</groupId>
             <artifactId>luvjfx</artifactId>
             <version>${luvjfx.version}</version>

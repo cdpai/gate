@@ -1,11 +1,9 @@
 package cdpai.gate.ui;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
 import javafx.geometry.Insets;
-import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
@@ -16,71 +14,61 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
 import cdpai.gate.access.*;
-import cdpai.gate.win.PeerIdentity;
-import cdpai.gate.win.RemoteProcessInfo;
 
-/// "The anchor is a deliberate choice made by a human, per approval, from a displayed tree. It is
-/// never assumed and never auto-applied." (design doc) This window is that choice: the ancestry
-/// table with a suggested-but-not-forced anchor, duration chips capped by whatever is selected,
-/// and nothing granted until Approve is pressed. No text input anywhere in this window, so bare
-/// letter keys (A/D) are fine per the keyboard-shortcuts guideline's own stated exception.
+/// The one approval window, for both kinds of request. Attested: the human picks how far up the
+/// process tree the approval reaches, and a broader anchor visibly shortens the longest duration.
+/// Keyed: the approval belongs to the app's key and its length is capped by how narrow the scope
+/// is. Nothing is granted until Approve. No text input here, so bare letters are the shortcuts.
 final class ApprovalWindow {
 
-    final PeerIdentity client;
-    final List<AncestryNode> chain;
-    final ProcessTree tree;
+    final Approval.Request r;
+    final PassphraseGate passphraseGate;
     final Consumer<Optional<Approval.Decision>> onDecision;
+    final boolean keyed;
     final AncestryTableView table;
-    final DurationChipsView chips = new DurationChipsView();
+    final DurationChipsView chips;
     final Stage stage = new Stage(StageStyle.UTILITY);
     boolean decided;
 
-    ApprovalWindow(PeerIdentity client, List<AncestryNode> chain, ProcessTree tree,
-                   Consumer<Optional<Approval.Decision>> onDecision) {
-        this.client = client;
-        this.chain = chain;
-        this.tree = tree;
+    ApprovalWindow(Approval.Request r, PassphraseGate passphraseGate, Consumer<Optional<Approval.Decision>> onDecision) {
+        this.r = r;
+        this.passphraseGate = passphraseGate;
         this.onDecision = onDecision;
-        this.table = new AncestryTableView(AncestryRow.build(chain, tree));
+        this.keyed = r.kind() == Approval.Kind.KEYED;
+        this.table = keyed ? null : new AncestryTableView(AncestryRow.build(r.chain(), r.tree(), r.requested()));
+        this.chips = new DurationChipsView(keyed ? DurationChips.KEYED : DurationChips.ATTESTED);
     }
 
     void show() {
-        var approve = new Button("(A)pprove");
-        var deny = new Button("(D)eny");
-        approve.setStyle("-fx-background-color: #2e7d32; -fx-text-fill: white; -fx-font-weight: bold;");
-        deny.setStyle("-fx-background-color: #b3261e; -fx-text-fill: white;");
-        approve.setOnAction(e -> approve());
-        deny.setOnAction(e -> decide(Optional.empty()));
+        var approve = button("A  Approve", "#2e7d32", this::approve);
+        var deny = button("D  Deny", "#b3261e", () -> decide(Optional.empty()));
+        var legend = ApprovalParts.small((keyed ? "" : "↑/↓ anchor · ") + "←/→ duration · A approve · D or Esc deny", "#777");
 
-        var buttons = new HBox(8, approve, deny);
-        var status = new Label("↑/↓ anchor · ←/→ duration · A approve · D/Esc deny"
-            + " · grant dies when the anchor exits, whatever the clock says");
-        status.setStyle("-fx-font-size: 10; -fx-text-fill: #777;");
-
-        var ancestryScroll = new ScrollPane(table.node());
-        ancestryScroll.setFitToWidth(true);
-        ancestryScroll.setPrefHeight(Math.min(220, 34 + table.rows.size() * 24));
-        ancestryScroll.setMaxHeight(220);
-
-        var root = new VBox(10, header(), instructionLine(), ancestryScroll, chips.node(), buttons, status);
+        var root = new VBox(10, ApprovalParts.header(r), ApprovalParts.scope(r));
+        if (keyed) {
+            root.getChildren().add(ApprovalParts.keyedNote(r));
+            var cap = KeyedAppStore.maxMinutes(r.requested());
+            chips.setCap(cap, r.requested().requestedMinutes(), "how narrowly it is scoped");
+        } else {
+            root.getChildren().add(ApprovalParts.small("Choose how far up the process tree this approval reaches."
+                + " Broader anchors allow shorter durations. The approval ends when the anchor exits.", "#333"));
+            var scroll = new ScrollPane(table.node());
+            scroll.setFitToWidth(true);
+            scroll.setPrefHeight(Math.min(240, 34 + table.rows.size() * 24));
+            root.getChildren().add(scroll);
+            table.onSelectionChange(this::onAnchorChanged);
+            var hops = table.selectableHopsAscending();
+            var suggested = AnchorSuggestion.suggest(r.chain(), r.tree());
+            table.selectHop(suggested >= 0 ? suggested : hops.isEmpty() ? -1 : hops.getLast());
+            onAnchorChanged();
+        }
+        root.getChildren().addAll(chips.node(), new HBox(8, approve, deny), legend);
         root.setPadding(new Insets(14));
-        root.setPrefWidth(620);
-
-        table.onSelectionChange(this::onAnchorChanged);
-        var suggested = AnchorSuggestion.suggest(chain, tree);
-        // Fall back to the BROADEST (deepest) selectable hop, not the narrowest -- when nothing
-        // looks "materially longer-lived" than the client, defaulting to the client itself would
-        // guarantee a re-prompt on every single future invocation, which is precisely the failure
-        // this whole design exists to prevent. The human still confirms; this only changes what
-        // is pre-selected for them.
-        var selectableHops = table.selectableHopsAscending();
-        var fallback = selectableHops.isEmpty() ? -1 : selectableHops.get(selectableHops.size() - 1);
-        table.selectHop(suggested >= 0 ? suggested : fallback);
-        onAnchorChanged();
+        root.setPrefWidth(660);
 
         var scene = new Scene(root);
         scene.addEventFilter(KeyEvent.KEY_PRESSED, this::onKey);
-        stage.setTitle("cdpgate — connection request");
+        stage.setTitle("cdpgate: connection request from " + r.app());
         stage.setScene(scene);
         stage.setAlwaysOnTop(true);
         stage.setOnCloseRequest(e -> decide(Optional.empty()));
@@ -88,78 +76,59 @@ final class ApprovalWindow {
         stage.toFront();
     }
 
-    Node header() {
-        var name = new Label(chain.get(0).imageName());
-        name.setStyle("-fx-font-weight: bold; -fx-font-size: 14;");
-        var badge = new Label("NOT APPROVED");
-        badge.setStyle("-fx-background-color: #b3261e; -fx-text-fill: white; -fx-font-size: 10;"
-            + " -fx-padding: 1 6; -fx-background-radius: 3;");
-        var title = new HBox(8, name, badge);
-
-        var meta = new Label("PID " + client.pid() + " · kernel-attested");
-        meta.setStyle("-fx-font-family: Consolas, monospace; -fx-font-size: 11; -fx-text-fill: #444;");
-
-        return new VBox(3, title, meta, box("full command", RemoteProcessInfo.commandLine(client.pid())),
-            box("working directory", RemoteProcessInfo.currentDirectory(client.pid())));
-    }
-
-    static Node box(String labelText, Optional<String> content) {
-        var lbl = new Label(labelText.toUpperCase());
-        lbl.setStyle("-fx-font-size: 9; -fx-text-fill: #777;");
-        var text = new TextArea(content.orElse("(unavailable)"));
-        text.setEditable(false);
-        text.setWrapText(true);
-        text.setPrefRowCount(2);
-        text.setMaxHeight(46);
-        text.setStyle("-fx-font-family: Consolas, monospace; -fx-font-size: 10.5;");
-        return new VBox(2, lbl, text);
-    }
-
-    static Node instructionLine() {
-        var l = new Label("Choose how far up the process tree the approval reaches."
-            + " Broader anchors get a shorter maximum duration.");
-        l.setWrapText(true);
-        l.setStyle("-fx-font-size: 11;");
-        return l;
+    static Button button(String text, String color, Runnable action) {
+        var b = new Button(text);
+        b.setMnemonicParsing(false);
+        b.setStyle("-fx-background-color: " + color + "; -fx-text-fill: white; -fx-font-weight: bold;");
+        b.setOnAction(e -> action.run());
+        return b;
     }
 
     void onAnchorChanged() {
-        var hop = table.selectedHop();
-        var cap = hop.map(h -> table.rows.get(h).cap().minutes()).orElse(0);
-        chips.setCap(cap);
+        var row = table.selectedHop().map(table.rows::get);
+        chips.setCap(row.map(x -> x.cap().minutes()).orElse(0), r.requested().requestedMinutes(),
+            row.map(x -> x.cap().boundBy()).orElse(""));
     }
 
     void onKey(KeyEvent e) {
-        var code = e.getCode();
-        if (code == KeyCode.UP || code == KeyCode.DOWN) { moveAnchor(code == KeyCode.DOWN); e.consume(); }
-        else if (code == KeyCode.LEFT || code == KeyCode.RIGHT) { chips.move(code == KeyCode.RIGHT); e.consume(); }
-        else if (code == KeyCode.A) { approve(); e.consume(); }
-        else if (code == KeyCode.D || code == KeyCode.ESCAPE) { decide(Optional.empty()); e.consume(); }
+        switch (e.getCode()) {
+            case UP, DOWN -> { if (!keyed) moveAnchor(e.getCode() == KeyCode.DOWN); }
+            case LEFT, RIGHT -> chips.move(e.getCode() == KeyCode.RIGHT);
+            case A -> approve();
+            case D, ESCAPE -> decide(Optional.empty());
+            default -> { return; }
+        }
+        e.consume();
     }
 
     void moveAnchor(boolean down) {
         var hops = table.selectableHopsAscending();
         if (hops.isEmpty()) return;
-        var current = table.selectedHop().orElse(hops.get(0));
-        var idx = hops.indexOf(current);
-        var next = down ? Math.min(idx + 1, hops.size() - 1) : Math.max(idx - 1, 0);
-        table.selectHop(hops.get(next));
+        var idx = hops.indexOf(table.selectedHop().orElse(hops.getFirst()));
+        table.selectHop(hops.get(down ? Math.min(idx + 1, hops.size() - 1) : Math.max(idx - 1, 0)));
     }
 
     void approve() {
-        var hop = table.selectedHop();
-        if (hop.isEmpty()) return;
-        var row = table.rows.get(hop.get());
-        if (!row.selectable()) return;
         var minutes = chips.selectedMinutes();
-        if (minutes <= 0 || minutes > row.cap().minutes()) return;
-        decide(Optional.of(new Approval.Decision(row.node(), minutes)));
+        if (minutes <= 0) return;
+        AncestryNode anchor = null;
+        var cap = KeyedAppStore.maxMinutes(r.requested());
+        if (!keyed) {
+            var row = table.selectedHop().map(table.rows::get).filter(AncestryRow::selectable).orElse(null);
+            if (row == null || minutes > row.cap().minutes()) return;
+            anchor = row.node();
+            cap = row.cap().minutes();
+        }
+        if (ApprovalParts.needsPassphrase(r.requested()) && !PassphrasePrompt.confirmOnce(passphraseGate,
+                "cdpgate: confirm an unscoped approval", "This request covers every profile and every website."
+                    + " Type the passphrase to approve it anyway.")) return;
+        decide(Optional.of(new Approval.Decision(anchor, minutes, cap, r.requested())));
     }
 
-    void decide(Optional<Approval.Decision> decision) {
+    void decide(Optional<Approval.Decision> d) {
         if (decided) return;
         decided = true;
-        onDecision.accept(decision);
+        onDecision.accept(d);
         stage.close();
     }
 }

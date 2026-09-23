@@ -14,8 +14,7 @@ public final class AnchorSuggestion {
     public static int suggest(List<AncestryNode> chain, ProcessTree tree) {
         for (var hop = 1; hop < chain.size(); hop++) {
             var node = chain.get(hop);
-            var hasParent = hop + 1 < chain.size();
-            var category = CategoryClassifier.classify(node, hasParent, tree);
+            var category = CategoryClassifier.classify(node, hop, chain.size(), tree);
             var cap = DurationCaps.compute(category, hop, node.descendantCount());
             if (cap.minutes() > 0 && materiallyLongerLived(chain.get(0), node)) return hop;
         }

@@ -1,100 +1,96 @@
 package cdpai.gate;
 
-import java.util.HashSet;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 import cdpai.gate.access.*;
-import cdpai.gate.hub.CdpHub;
+import cdpai.gate.browser.BrowserSupervisor;
 import cdpai.gate.hub.ConsumerLink;
 import cdpai.gate.win.NamedPipeServer;
-import cdpai.gate.win.VivaldiProcess;
 
-/// Ties the three proven pieces together: the named pipe (identity, kernel-attested), the
-/// Vivaldi link (the one browser connection, multiplexed by CdpHub), and the access decision
-/// (grant re-attestation, falling through to a human approval for anything not already granted).
-/// This is the server; GateMain just constructs one against a real or scratch browser and calls run().
-///
-/// Also enforces "expiry closes open connections; it does not merely stop new ones" (design doc):
-/// a background sweep periodically checks every live consumer's grant against GrantStore and
-/// cancels the pending I/O of any whose grant has expired or been revoked, which wakes that
-/// consumer's own reader thread to run its normal disconnect cleanup.
+/// The pipe server: accepts connections, hands each to a ConnectionHandler, and keeps the list of
+/// live connections honest. Expiry closes open connections rather than merely refusing new ones,
+/// so a row in the access window never reads as ended while its consumer is still working; five
+/// minutes before an attested grant with a live connection runs out, the UI is told so the human
+/// can extend it (within the grant's own cap) or let it lapse.
 public final class GateServer {
 
-    static final long SWEEP_INTERVAL_MS = 10_000;
+    public record LiveLink(Approval.Kind kind, String approvalId, String label) {}
+
+    public record Expiring(String grantId, String label, Instant expiresAt) {}
+
+    static final long SWEEP_MS = 5_000;
+    static final Duration WARN_BEFORE = Duration.ofMinutes(5);
 
     final NamedPipeServer pipeServer;
-    final CdpHub hub;
-    final GrantStore grants = new GrantStore();
+    final BrowserSupervisor browser;
     final Approval approval;
-    final ConcurrentHashMap<ConsumerLink, Grant> linkGrants = new ConcurrentHashMap<>();
+    final GrantStore grants = new GrantStore();
+    final KeyedAppStore keyed;
+    final ConcurrentHashMap<ConsumerLink, LiveLink> links = new ConcurrentHashMap<>();
+    final Set<String> warned = ConcurrentHashMap.newKeySet();
+    volatile Consumer<Expiring> onExpiring = e -> {};
 
-    public GateServer(VivaldiProcess vivaldi, String pipeName, Approval approval) {
-        this.hub = new CdpHub(vivaldi.cdp);
+    public GateServer(BrowserSupervisor browser, String pipeName, Approval approval, KeyedAppStore keyed) {
+        this.browser = browser;
         this.pipeServer = new NamedPipeServer(pipeName);
         this.approval = approval;
+        this.keyed = keyed;
     }
 
+    public void onExpiring(Consumer<Expiring> l) { onExpiring = l; }
+
     public void run() {
-        Thread.ofPlatform().name("cdpgate-browser-reader").start(hub::pumpBrowserMessages);
-        Thread.ofPlatform().name("cdpgate-grant-sweep").daemon().start(this::sweepInvalidGrants);
+        Thread.ofPlatform().name("cdpgate-sweep").daemon().start(this::sweep);
         while (true) {
             NamedPipeServer.Accepted accepted;
             try { accepted = pipeServer.accept(); }
             catch (Exception e) { System.err.println("accept failed: " + e.getMessage()); continue; }
-            var finalAccepted = accepted;
-            Thread.ofPlatform().name("cdpgate-consumer-" + accepted.peer().pid())
-                .start(() -> handleConnection(finalAccepted));
+            var a = accepted;
+            Thread.ofPlatform().name("cdpgate-consumer-" + a.peer().pid()).start(() -> new ConnectionHandler(this, a).run());
         }
     }
+
+    void register(ConsumerLink link, Approval.Kind kind, String approvalId, String label) { links.put(link, new LiveLink(kind, approvalId, label)); }
+
+    void unregister(ConsumerLink link) { links.remove(link); }
 
     public List<Grant> activeGrants() { return grants.active(); }
 
-    public void revoke(Grant grant) {
-        grants.revoke(grant);
-        linkGrants.forEach((link, g) -> { if (g.equals(grant)) link.io.cancelPendingIo(); });
-    }
+    public List<KeyedApp> keyedApps() { return keyed.all(); }
+
+    public long liveConnections(String approvalId) { return links.values().stream().filter(l -> l.approvalId().equals(approvalId)).count(); }
+
+    public void revokeGrant(String id) { grants.revoke(id); cut(id); }
+
+    public void revokeKeyed(String id) { keyed.revoke(id); cut(id); }
+
+    public void clearKeyedFlag(String id) { keyed.clearFlag(id); }
+
+    public void extendGrant(String id) { grants.extend(id); warned.remove(id); }
 
     public void revokeAllNow() {
         grants.clear();
-        linkGrants.keySet().forEach(link -> link.io.cancelPendingIo());
+        links.forEach((link, l) -> { if (l.kind() == Approval.Kind.ATTESTED) link.io.cancelPendingIo(); });
     }
 
-    void sweepInvalidGrants() {
+    void cut(String approvalId) { links.forEach((link, l) -> { if (l.approvalId().equals(approvalId)) link.io.cancelPendingIo(); }); }
+
+    void sweep() {
         while (true) {
-            try { Thread.sleep(SWEEP_INTERVAL_MS); } catch (InterruptedException e) { return; }
-            var active = new HashSet<>(grants.active());
-            linkGrants.forEach((link, grant) -> { if (!active.contains(grant)) link.io.cancelPendingIo(); });
-        }
-    }
-
-    void handleConnection(NamedPipeServer.Accepted accepted) {
-        var peer = accepted.peer();
-        // Raw chain FIRST, before the (measurably slower) full-system snapshot -- see
-        // ProcessTree.rawChain's own doc for why this order is load-bearing, not stylistic.
-        var raw = ProcessTree.rawChain(peer.pid());
-        var tree = ProcessTree.snapshot();
-        var chain = tree.decorate(raw);
-
-        var grant = grants.findValid(peer.imagePath(), chain).orElse(null);
-        if (grant == null) {
-            var decision = approval.decide(peer, chain, tree);
-            if (decision.isEmpty()) { accepted.io().close(); return; }
-            grant = grants.create(peer.imagePath(), decision.get().anchor(), decision.get().durationMinutes());
-        }
-
-        var link = new ConsumerLink(peer, accepted.io());
-        linkGrants.put(link, grant);
-        hub.addConsumer(link);
-        try {
-            String msg;
-            while ((msg = link.io.readFrame()) != null) hub.onConsumerMessage(link, msg);
-        } catch (Exception ignored) {
-            // consumer disconnected, or was cancelled by the grant sweep -- ordinary lifecycle
-        } finally {
-            linkGrants.remove(link);
-            hub.removeConsumer(link);
-            link.io.close();
+            try { Thread.sleep(SWEEP_MS); } catch (InterruptedException e) { return; }
+            var now = Instant.now();
+            links.forEach((link, l) -> {
+                if (l.kind() == Approval.Kind.KEYED) { if (!keyed.isValid(l.approvalId())) link.io.cancelPendingIo(); return; }
+                var g = grants.byId(l.approvalId());
+                if (g.isEmpty()) { link.io.cancelPendingIo(); return; }
+                if (Duration.between(now, g.get().expiresAt()).compareTo(WARN_BEFORE) <= 0 && warned.add(g.get().id()))
+                    onExpiring.accept(new Expiring(g.get().id(), l.label(), g.get().expiresAt()));
+            });
         }
     }
 }

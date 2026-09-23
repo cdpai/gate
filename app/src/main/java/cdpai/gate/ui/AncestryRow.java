@@ -14,13 +14,12 @@ record AncestryRow(int hop, AncestryNode node, AnchorCategory category, Duration
             && cap.minutes() > 0;
     }
 
-    static List<AncestryRow> build(List<AncestryNode> chain, ProcessTree tree) {
+    static List<AncestryRow> build(List<AncestryNode> chain, ProcessTree tree, Scope requestedScope) {
         var rows = new ArrayList<AncestryRow>();
         for (var hop = 0; hop < chain.size(); hop++) {
             var node = chain.get(hop);
-            var hasParent = hop + 1 < chain.size();
-            var category = CategoryClassifier.classify(node, hasParent, tree);
-            var cap = DurationCaps.compute(category, hop, node.descendantCount());
+            var category = CategoryClassifier.classify(node, hop, chain.size(), tree);
+            var cap = DurationCaps.compute(category, hop, node.descendantCount(), requestedScope);
             rows.add(new AncestryRow(hop, node, category, cap));
         }
         return rows;

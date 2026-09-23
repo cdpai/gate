@@ -18,8 +18,7 @@ public class AncestryTrial {
 
         for (var hop = 0; hop < chain.size(); hop++) {
             var node = chain.get(hop);
-            var hasParent = hop + 1 < chain.size();
-            var category = CategoryClassifier.classify(node, hasParent, tree);
+            var category = CategoryClassifier.classify(node, hop, chain.size(), tree);
             var cap = DurationCaps.compute(category, hop, node.descendantCount());
             System.out.printf("%-6d %-28s %-9d %-16s %-8d %s%n",
                 hop, node.imageName(), node.descendantCount(), category, cap.minutes(), cap.boundBy());

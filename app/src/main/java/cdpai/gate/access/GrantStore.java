@@ -3,39 +3,46 @@ package cdpai.gate.access;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-/// Live grants, in memory only -- restarting cdpgate means re-approving, which is the honest
-/// behaviour matching "revocable at any time" from the design doc. A grant ends when its duration
-/// expires, when the anchor process exits, or when revoked by hand; all three are checked here
-/// rather than left to a background sweep, since the check is cheap and the alternative is a
-/// stale row that lies about who currently has access.
+/// Live attested grants, in memory only: restarting cdpgate means approving again. Expired grants
+/// and grants whose anchor has exited are dropped whenever the list is read, so it never shows
+/// access that no longer exists.
 public final class GrantStore {
 
     final CopyOnWriteArrayList<Grant> grants = new CopyOnWriteArrayList<>();
 
-    public Grant create(String clientImagePath, AncestryNode anchor, int durationMinutes) {
-        var expires = Instant.now().plusSeconds(durationMinutes * 60L);
-        var grant = new Grant(clientImagePath, anchor.pid(),
-            anchor.startInstant().orElseThrow(() -> new IllegalStateException(
-                "cannot anchor to a process whose start time is unavailable")),
-            anchor.imagePath(), durationMinutes, expires);
-        grants.add(grant);
-        return grant;
+    public Grant create(String clientImagePath, AncestryNode anchor, int minutes, int capMinutes, Scope scope) {
+        var start = anchor.startInstant().orElseThrow(() -> new IllegalStateException("anchor has no start time"));
+        var g = new Grant(UUID.randomUUID().toString(), clientImagePath, anchor.pid(), start, anchor.imagePath(),
+            minutes, capMinutes, Instant.now().plusSeconds(minutes * 60L), scope);
+        grants.add(g);
+        return g;
     }
 
-    /// Re-attests a returning client: same executable, and the pinned anchor is still present
-    /// somewhere in its CURRENT ancestry. Intermediate processes may differ freely -- a fresh
-    /// per-command shell is expected and passes, per the design.
-    public Optional<Grant> findValid(String clientImagePath, List<AncestryNode> currentChain) {
+    /// Same executable, and the pinned anchor still somewhere in its current ancestry. The shells
+    /// in between may differ -- a fresh per-command shell is expected.
+    public Optional<Grant> findValid(String clientImagePath, List<AncestryNode> chain) {
         purgeStale();
-        return grants.stream()
-            .filter(g -> g.coversClient(clientImagePath))
-            .filter(g -> g.anchorStillPresent(currentChain))
-            .findFirst();
+        return grants.stream().filter(g -> g.coversClient(clientImagePath)).filter(g -> g.anchorStillPresent(chain)).findFirst();
     }
 
-    public void revoke(Grant grant) { grants.remove(grant); }
+    public Optional<Grant> byId(String id) {
+        purgeStale();
+        return grants.stream().filter(g -> g.id().equals(id)).findFirst();
+    }
+
+    /// Extends by the grant's own duration from now, never beyond its cap.
+    public Optional<Grant> extend(String id) {
+        return byId(id).map(g -> {
+            var ext = g.extendedTo(Instant.now().plusSeconds(Math.min(g.durationMinutes(), g.capMinutes()) * 60L));
+            grants.replaceAll(x -> x.id().equals(id) ? ext : x);
+            return ext;
+        });
+    }
+
+    public void revoke(String id) { grants.removeIf(g -> g.id().equals(id)); }
 
     public void clear() { grants.clear(); }
 

@@ -101,10 +101,7 @@ final class AncestryTableView {
         return cell(l, 45);
     }
 
-    static String label(int minutes) {
-        for (var chip : DurationChips.ALL) if (chip.minutes() == minutes) return chip.label();
-        return minutes + "m";
-    }
+    static String label(int minutes) { return DurationChips.label(minutes); }
 
     static String age(cdpai.gate.access.AncestryNode node) {
         var seconds = node.startInstant().map(s -> Duration.between(s, Instant.now()).toSeconds()).orElse(0L);
