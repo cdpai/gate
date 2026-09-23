@@ -76,8 +76,6 @@ public final class BrowserSupervisor {
         loader = l;
         hub = new CdpHub(vivaldi.cdp, inventory, profiles::dirOf,
             new TabPlacement(this::defaultContext, profiles::dirOf, d -> profiles.contextOf(d).orElse(null), l::openTab));
-        var launchDir = order.getFirst();
-        hub.launchContext(() -> profiles.contextOf(launchDir).orElse(null));
         loader.holdIdentification(true);
         inventory.onContextAppeared(loader::onContextAppeared);
         inventory.onContextGone(profiles::unbind);
