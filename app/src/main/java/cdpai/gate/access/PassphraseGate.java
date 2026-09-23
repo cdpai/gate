@@ -14,7 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /// Wallet-style password gating on top of everything else cdpgate already enforces (kernel
-/// attestation, scope enforcement, duration caps) -- modeled explicitly on uskoag-wallet's own
+/// attestation, scope enforcement, duration caps) -- modeled explicitly on a credential wallet's own
 /// passphrase mechanism, per the user's own words (2026-09-21). Three tiers, each additive:
 ///
 /// - **Tier 0 (baseline unlock)**: an alphanumeric-only passphrase, set on first run, entered
