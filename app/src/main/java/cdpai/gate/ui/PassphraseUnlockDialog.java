@@ -52,6 +52,8 @@ public final class PassphraseUnlockDialog {
         });
         stage.setScene(new Scene(box));
         stage.setOnCloseRequest(Event::consume);
+        stage.setAlwaysOnTop(true);
+        stage.setOnShown(e -> stage.toFront());
         stage.showAndWait();
     }
 
@@ -80,6 +82,8 @@ public final class PassphraseUnlockDialog {
         });
         stage.setScene(new Scene(box));
         stage.setOnCloseRequest(Event::consume);
+        stage.setAlwaysOnTop(true);
+        stage.setOnShown(e -> stage.toFront());
         stage.showAndWait();
     }
 

@@ -49,6 +49,18 @@ public class ScopePolicyTrial {
         var kept = ScopePolicy.filterTargetInfos(infos, both, M, DIRS::get);
         check("getTargets keeps only the target matching both", kept.size() == 1 && kept.get(0).path("targetId").asText().equals("t1"));
 
+        // cookies: scoped by profile, never by domain
+        check("session-level cookie call passes (the tab's own profile)", jar("Network.getCookies", "{}", both, "ctxB", false).isEmpty());
+        check("cookies of the approved default profile pass, any site", jar("Storage.getCookies", "{}", both, "ctxA", true).isEmpty());
+        var routed = M.createObjectNode();
+        check("default outside scope, one profile approved: routed to it", ScopePolicy.cookieJar("Storage.getCookies", routed, both, "ctxB", DIRS::get,
+            d -> d.equals("Default") ? "ctxA" : null).isEmpty() && routed.path("browserContextId").asText().equals("ctxA"));
+        check("naming another profile's jar is refused", jar("Storage.getCookies", "{\"browserContextId\":\"ctxB\"}", both, "ctxA", true).length() > 0);
+        check("Network.getAllCookies on a default outside scope is refused", jar("Network.getAllCookies", "{}", both, "ctxB", true).length() > 0);
+        check("domain-only scope leaves the jar alone", jar("Storage.getCookies", "{}", domains, "ctxB", true).isEmpty());
+        check("two profiles approved, none named, default outside: refused", jar("Storage.getCookies", "{}",
+            new Scope(null, List.of("Default", "Profile 3"), null), "ctxB", true).length() > 0);
+
         var approved = new Scope(List.of("youtube.com"), List.of("Default", "Profile 2"), null);
         check("covers a narrower request", approved.covers(new Scope(List.of("studio.youtube.com"), List.of("Default"), null)));
         check("does not cover an unnarrowed request", !approved.covers(new Scope(List.of("youtube.com"), null, null)));
@@ -64,6 +76,12 @@ public class ScopePolicyTrial {
             "t1", new TargetMeta("https://youtube.com/watch", "page", "ctxA"),
             "t3", new TargetMeta("https://youtube.com/watch", "page", "ctxB"));
         return ScopePolicy.deny(method, M.readTree(params), scope, known, DIRS::get).orElse("");
+    }
+
+    static String jar(String method, String params, Scope scope, String defaultCtx, boolean browserLevel) throws Exception {
+        if (!browserLevel) return "";
+        return ScopePolicy.cookieJar(method, (com.fasterxml.jackson.databind.node.ObjectNode) M.readTree(params), scope, defaultCtx, DIRS::get,
+            d -> d.equals("Default") ? "ctxA" : null).orElse("");
     }
 
     static JsonNode info(String id, String url, String ctx) {

@@ -48,6 +48,8 @@ final class PassphrasePrompt {
         box.setPadding(new Insets(16));
         box.setPrefWidth(380);
         stage.setScene(new Scene(box));
+        stage.setAlwaysOnTop(true);
+        stage.setOnShown(e -> stage.toFront());
         stage.showAndWait();
         return result[0];
     }
