@@ -125,6 +125,9 @@ final class ApprovalWindow {
         decide(Optional.of(new Approval.Decision(anchor, minutes, cap, r.requested())));
     }
 
+    /// The requester is gone: close without asking, as a denial nobody will read.
+    void withdraw() { decide(Optional.empty()); }
+
     void decide(Optional<Approval.Decision> d) {
         if (decided) return;
         decided = true;
