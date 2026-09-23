@@ -21,11 +21,14 @@ public final class GrantStore {
         return g;
     }
 
-    /// Same executable, and the pinned anchor still somewhere in its current ancestry. The shells
-    /// in between may differ -- a fresh per-command shell is expected.
-    public Optional<Grant> findValid(String clientImagePath, List<AncestryNode> chain) {
+    /// Same executable, the pinned anchor still somewhere in its current ancestry, and a scope that
+    /// covers the request. The shells in between may differ -- a fresh per-command shell is expected.
+    /// Scope is part of the match, not checked after it: one client may hold grants for several
+    /// profiles, and taking the first and then finding it too narrow re-asked the human every time.
+    public Optional<Grant> findValid(String clientImagePath, List<AncestryNode> chain, Scope requested) {
         purgeStale();
-        return grants.stream().filter(g -> g.coversClient(clientImagePath)).filter(g -> g.anchorStillPresent(chain)).findFirst();
+        return grants.stream().filter(g -> g.coversClient(clientImagePath)).filter(g -> g.anchorStillPresent(chain))
+            .filter(g -> g.scope().covers(requested)).findFirst();
     }
 
     public Optional<Grant> byId(String id) {

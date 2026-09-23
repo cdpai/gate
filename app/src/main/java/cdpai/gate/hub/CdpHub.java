@@ -4,6 +4,7 @@ import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,6 +38,9 @@ public final class CdpHub {
     final AtomicLong nextUpstreamId = new AtomicLong();
     final ConcurrentHashMap<String, ConsumerLink> pendingAttach = new ConcurrentHashMap<>();
     volatile ConsumerLink autoAttachOwner;
+    /// The context of the profile the browser was launched with: where a cookie call naming no
+    /// profile lands. Distinct from the last-used default that TabPlacement follows.
+    volatile Supplier<String> launchContext = () -> null;
 
     /// `dirOf` names the profile folder of a context; `placement` decides where new tabs go.
     public CdpHub(PipeIo browser, TargetInventory inventory, Function<String, String> dirOf, TabPlacement placement) {
@@ -47,6 +51,8 @@ public final class CdpHub {
     }
 
     public TargetInventory inventory() { return inventory; }
+
+    public void launchContext(Supplier<String> s) { launchContext = s; }
 
     public void start() { internalCall("Target.setDiscoverTargets", mapper.createObjectNode().put("discover", true)); }
 
@@ -109,7 +115,7 @@ public final class CdpHub {
             return "cdpgate: browser-wide auto-attach is not available to a scoped connection; attach to targets one at a time";
         if (!obj.has("sessionId") && ScopePolicy.isCookieCall(method)) {
             var params = obj.get("params") instanceof ObjectNode p ? p : obj.putObject("params");
-            var jar = ScopePolicy.cookieJar(method, params, scope, placement == null ? null : placement.defaultContext.get(), dirOf,
+            var jar = ScopePolicy.cookieJar(method, params, scope, launchContext.get(), dirOf,
                 placement == null ? d -> null : placement.contextOf);
             if (jar.isPresent()) return jar.get();
         }

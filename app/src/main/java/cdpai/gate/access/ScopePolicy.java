@@ -45,7 +45,10 @@ public final class ScopePolicy {
     }
 
     /// Cookie calls sent to the browser itself (no session) act on one profile's whole jar: the
-    /// context named by `browserContextId`, or the browser's default context when none is named.
+    /// context named by `browserContextId`, or, when none is named, the profile the browser was
+    /// LAUNCHED with -- not the last-used default that createTarget follows. The launch profile
+    /// cannot be named by id at all ("Failed to find browser context"), so a call naming it has the
+    /// id removed. Both measured on Vivaldi 2026-09-23.
     /// Cookies are scoped by PROFILE, never by domain -- a profile shares one jar across every site
     /// (YouTube needs google.com's account cookies; any site can offer Google sign-in), so a
     /// domain-filtered jar would break real sites in ways that are hard to debug. Domains scope tabs.
@@ -59,16 +62,20 @@ public final class ScopePolicy {
     /// Keeps a browser-level cookie call inside the approved profiles. A Storage call naming no
     /// profile, when the default context is outside the scope and exactly one profile is approved,
     /// is routed to that profile by writing its context into `params`; otherwise it is refused.
-    public static Optional<String> cookieJar(String method, ObjectNode params, Scope scope, String defaultContext,
+    public static Optional<String> cookieJar(String method, ObjectNode params, Scope scope, String launchContext,
                                              Function<String, String> dirOf, Function<String, String> contextOf) {
-        if (!scope.profilesScoped() || !isCookieCall(method)) return Optional.empty();
-        if (allowsProfile(scope, dirOfNullable(dirOf, defaultContext)) && !params.hasNonNull("browserContextId")) return Optional.empty();
-        if (NETWORK_COOKIES.contains(method))
-            return Optional.of("cdpgate: " + method + " on the browser reads the default profile, which is outside the approved scope;"
-                + " use Storage.getCookies (cdpgate routes it to the approved profile) or send it on an attached tab's session");
+        if (!isCookieCall(method)) return Optional.empty();
         var named = params.path("browserContextId").asText(null);
-        if (named != null) return allowsProfile(scope, dirOfNullable(dirOf, named)) ? Optional.empty()
-            : Optional.of("cdpgate: cookies of a profile outside the approved scope");
+        var namesLaunch = named != null && named.equals(launchContext);
+        var jar = named != null ? named : launchContext;
+        if (!scope.profilesScoped() || allowsProfile(scope, dirOfNullable(dirOf, jar))) {
+            if (namesLaunch) params.remove("browserContextId");
+            return Optional.empty();
+        }
+        if (named != null) return Optional.of("cdpgate: cookies of a profile outside the approved scope");
+        if (NETWORK_COOKIES.contains(method))
+            return Optional.of("cdpgate: " + method + " on the browser reads the launch profile, which is outside the approved scope;"
+                + " use Storage.getCookies (cdpgate routes it to the approved profile) or send it on an attached tab's session");
         var only = scope.profiles().size() == 1 ? contextOf.apply(scope.profiles().get(0)) : null;
         if (only == null) return Optional.of("cdpgate: name the profile -- pass browserContextId of an approved profile");
         params.put("browserContextId", only);
