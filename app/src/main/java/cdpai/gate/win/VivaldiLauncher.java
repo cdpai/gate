@@ -16,10 +16,15 @@ import static cdpai.gate.win.ProcessLaunchApi.*;
 /// proved Java can own inherited handles this way; this version is parameterized and long-lived
 /// rather than a single hardcoded trial.
 ///
-/// Deliberately never passes --enable-automation: that flag is what sets navigator.webdriver,
-/// and the spike findings measured that nothing here needs it -- Browser.getBrowserCommandLine
-/// is the one CDP call that's refused without it, so the browser's command line must be read
-/// from the OS instead, never from CDP.
+/// Deliberately never passes --enable-automation, and nothing here needs it --
+/// Browser.getBrowserCommandLine is the one CDP call that's refused without it, so the browser's
+/// command line must be read from the OS instead, never from CDP.
+///
+/// Leaving out --enable-automation is NOT enough to keep navigator.webdriver false: Chromium turns
+/// on the AutomationControlled blink feature for --remote-debugging-pipe as well. Measured
+/// 2026-09-23: navigator.webdriver === true in every tab, and Cloudflare looped its challenge page
+/// forever on ofcom.org.uk and claude.ai. --disable-blink-features=AutomationControlled
+/// switches that feature back off.
 public final class VivaldiLauncher {
 
     public static VivaldiProcess launch(String exePath, String userDataDir) {
@@ -93,7 +98,8 @@ public final class VivaldiLauncher {
     }
 
     static String commandLine(String exePath, String userDataDir, List<String> extraArgs) {
-        var parts = new java.util.ArrayList<>(List.of("--remote-debugging-pipe", "--no-first-run", "--no-default-browser-check"));
+        var parts = new java.util.ArrayList<>(List.of("--remote-debugging-pipe",
+            "--disable-blink-features=AutomationControlled", "--no-first-run", "--no-default-browser-check"));
         if (userDataDir != null) parts.add(quoteIfNeeded("--user-data-dir=" + userDataDir));
         extraArgs.forEach(a -> parts.add(quoteIfNeeded(a)));
         return "\"" + exePath + "\" " + String.join(" ", parts);
