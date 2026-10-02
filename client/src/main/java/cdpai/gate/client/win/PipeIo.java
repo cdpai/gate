@@ -18,7 +18,7 @@ import static cdpai.gate.client.win.Win32.*;
 /// confirmed 2026-09-20, and confirmed NOT fixed merely by duplicating the handle value (the
 /// serialization is per pipe object, not per handle). Overlapped I/O is the real, Windows-native
 /// way to have a pending read and a pending write coexist on one handle.
-public final class PipeIo implements AutoCloseable {
+public final class PipeIo implements cdpai.gate.client.FrameIo {
 
     static final int INITIAL_BUF = 65536;
 
@@ -52,7 +52,7 @@ public final class PipeIo implements AutoCloseable {
         this.writeOverlapped = null;
     }
 
-    public synchronized void writeFrame(String json) {
+    @Override public synchronized void writeFrame(String json) {
         var bytes = (json + "\0").getBytes(StandardCharsets.UTF_8);
         if (bytes.length > writeBuf.byteSize()) writeBuf = arena.allocate(bytes.length);
         MemorySegment.copy(bytes, 0, writeBuf, ValueLayout.JAVA_BYTE, 0, bytes.length);
@@ -72,7 +72,7 @@ public final class PipeIo implements AutoCloseable {
 
     /// One ReadFile on a byte-stream pipe can return several frames at once, or part of one;
     /// whatever follows a frame's NUL is kept for the next call rather than dropped.
-    public String readFrame() {
+    @Override public String readFrame() {
         var acc = new ByteArrayOutputStream();
         while (carryPos < carry.length) {
             var b = carry[carryPos++];
@@ -140,7 +140,7 @@ public final class PipeIo implements AutoCloseable {
     /// without closing the handle -- so the thread blocked in readFrame() wakes with an exception
     /// and unwinds through its own normal cleanup (which does the actual close()), rather than
     /// racing a cross-thread close() against native memory this object still owns.
-    public void cancelPendingIo() {
+    @Override public void cancelPendingIo() {
         if (closed.get()) return;
         try { CancelIoEx.invoke(readHandle, MemorySegment.NULL); } catch (Throwable ignored) {}
     }

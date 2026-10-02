@@ -12,7 +12,8 @@ import java.util.Set;
 public final class Hops {
 
     static final Set<String> SHELLISH = Set.of("bash.exe", "sh.exe", "zsh.exe", "dash.exe", "timeout.exe", "env.exe",
-        "nice.exe", "nohup.exe", "cmd.exe", "powershell.exe", "pwsh.exe", "conhost.exe");
+        "nice.exe", "nohup.exe", "cmd.exe", "powershell.exe", "pwsh.exe", "conhost.exe",
+        "bash", "sh", "zsh", "dash", "timeout", "env", "nice", "nohup", "login", "pwsh");
 
     /// Layers between chain[0] and chain[hop], a run of shells counting as one.
     public static int effective(List<AncestryNode> chain, int hop) {

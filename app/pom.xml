@@ -41,26 +41,26 @@
             <artifactId>FXTrayIcon</artifactId>
             <version>${fxtrayicon.version}</version>
         </dependency>
-        <!-- Windows-only: this whole app module is Win32-specific (named pipes, PEB reads),
-             so the classifier pulls in the platform natives the plain (classifier-less)
-             artifact does not ship. -->
+        <!-- The classifier pulls in the platform natives the plain (classifier-less) artifact does
+             not ship. javafx.platform is set per OS by the profiles below, so a build on a Mac
+             bundles the Mac natives; the jar is therefore specific to the OS it was built on. -->
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-base</artifactId>
             <version>${javafx.version}</version>
-            <classifier>win</classifier>
+            <classifier>${javafx.platform}</classifier>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-graphics</artifactId>
             <version>${javafx.version}</version>
-            <classifier>win</classifier>
+            <classifier>${javafx.platform}</classifier>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
             <version>${javafx.version}</version>
-            <classifier>win</classifier>
+            <classifier>${javafx.platform}</classifier>
         </dependency>
     </dependencies>
 
@@ -112,6 +112,21 @@
          The embedded config cannot be overridden by a file beside the exe, so nobody can make
          cdpgate.exe run other code by planting a .jrc next to it. -->
     <profiles>
+        <profile>
+            <id>javafx-win</id>
+            <activation><os><family>windows</family></os></activation>
+            <properties><javafx.platform>win</javafx.platform></properties>
+        </profile>
+        <profile>
+            <id>javafx-mac-aarch64</id>
+            <activation><os><family>mac</family><arch>aarch64</arch></os></activation>
+            <properties><javafx.platform>mac-aarch64</javafx.platform></properties>
+        </profile>
+        <profile>
+            <id>javafx-mac-x64</id>
+            <activation><os><family>mac</family><arch>x86_64</arch></os></activation>
+            <properties><javafx.platform>mac</javafx.platform></properties>
+        </profile>
         <profile>
             <id>jrexe</id>
             <activation>

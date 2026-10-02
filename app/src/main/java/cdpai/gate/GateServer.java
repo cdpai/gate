@@ -10,6 +10,8 @@ import java.util.function.Consumer;
 import cdpai.gate.access.*;
 import cdpai.gate.browser.BrowserSupervisor;
 import cdpai.gate.hub.ConsumerLink;
+import cdpai.gate.client.GatePlatform;
+import cdpai.gate.posix.UnixSocketServer;
 import cdpai.gate.win.NamedPipeServer;
 
 /// The pipe server: accepts connections, hands each to a ConnectionHandler, and keeps the list of
@@ -26,7 +28,7 @@ public final class GateServer {
     static final long SWEEP_MS = 5_000;
     static final Duration WARN_BEFORE = Duration.ofMinutes(5);
 
-    final NamedPipeServer pipeServer;
+    final ConsumerServer pipeServer;
     final BrowserSupervisor browser;
     final Approval approval;
     final GrantStore grants = new GrantStore();
@@ -37,7 +39,7 @@ public final class GateServer {
 
     public GateServer(BrowserSupervisor browser, String pipeName, Approval approval, KeyedAppStore keyed) {
         this.browser = browser;
-        this.pipeServer = new NamedPipeServer(pipeName);
+        this.pipeServer = GatePlatform.WINDOWS ? new NamedPipeServer(pipeName) : new UnixSocketServer(GatePlatform.socketPath(pipeName));
         this.approval = approval;
         this.keyed = keyed;
     }
@@ -47,7 +49,7 @@ public final class GateServer {
     public void run() {
         Thread.ofPlatform().name("cdpgate-sweep").daemon().start(this::sweep);
         while (true) {
-            NamedPipeServer.Accepted accepted;
+            ConsumerServer.Accepted accepted;
             try { accepted = pipeServer.accept(); }
             catch (Exception e) { System.err.println("accept failed: " + e.getMessage()); continue; }
             var a = accepted;

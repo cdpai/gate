@@ -7,7 +7,6 @@ import cdpai.gate.access.*;
 import cdpai.gate.access.Approval.Kind;
 import cdpai.gate.hub.CdpHub;
 import cdpai.gate.hub.ConsumerLink;
-import cdpai.gate.win.NamedPipeServer;
 import cdpai.gate.win.PeerIdentity;
 
 /// One connection, from first frame to disconnect. The ancestry chain is walked before anything
@@ -17,11 +16,11 @@ final class ConnectionHandler {
 
     final GateServer server;
     final PeerIdentity peer;
-    final cdpai.gate.client.win.PipeIo io;
+    final cdpai.gate.client.FrameIo io;
     final List<ProcessTree.RawLink> raw;
     boolean v2;
 
-    ConnectionHandler(GateServer server, NamedPipeServer.Accepted accepted) {
+    ConnectionHandler(GateServer server, ConsumerServer.Accepted accepted) {
         this.server = server;
         this.peer = accepted.peer();
         this.io = accepted.io();
@@ -157,5 +156,5 @@ final class ConnectionHandler {
         return String.join(", ", server.browser.profiles().profiles().stream().map(p -> p.name() + " (" + p.dir() + ")").toList());
     }
 
-    static String imageName(String path) { var i = path.lastIndexOf('\\'); return (i < 0 ? path : path.substring(i + 1)).toLowerCase(); }
+    static String imageName(String path) { var i = Math.max(path.lastIndexOf('\\'), path.lastIndexOf('/')); return (i < 0 ? path : path.substring(i + 1)).toLowerCase(); }
 }

@@ -10,7 +10,7 @@ import java.util.Optional;
 public record AncestryNode(long pid, String imagePath, Optional<Instant> startInstant, int descendantCount) {
 
     public String imageName() {
-        var i = imagePath.lastIndexOf('\\');
+        var i = Math.max(imagePath.lastIndexOf('\\'), imagePath.lastIndexOf('/'));
         return (i < 0 ? imagePath : imagePath.substring(i + 1)).toLowerCase();
     }
 }

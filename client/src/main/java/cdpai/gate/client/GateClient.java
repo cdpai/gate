@@ -1,15 +1,10 @@
 package cdpai.gate.client;
 
-import java.lang.foreign.*;
-import java.nio.charset.StandardCharsets;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import cdpai.gate.client.win.PipeIo;
-
-import static cdpai.gate.client.win.Kernel32.*;
-import static cdpai.gate.client.win.Win32.*;
+import cdpai.gate.client.posix.SocketClient;
+import cdpai.gate.client.win.PipeClient;
 
 /// A consumer's connection to cdpgate. `connect` performs the gate handshake -- it blocks while a
 /// human looks at the approval window -- and returns only once the connection is approved; after
@@ -27,7 +22,7 @@ public final class GateClient implements AutoCloseable {
     public static final String PIPE_NAME = "cdpai-gate";
     static final ObjectMapper MAPPER = new ObjectMapper();
 
-    final PipeIo io;
+    final FrameIo io;
     JsonNode grant;
 
     /// Raw connection with no handshake: treated as attested and unscoped. Kept for the trials
@@ -102,31 +97,8 @@ public final class GateClient implements AutoCloseable {
 
     @Override public void close() { io.close(); }
 
-    /// cdpgate creates the next pipe instance only after handing the last one to a connection, so a
-    /// client arriving in between sees "not found" (2) or "busy" (231) for a moment; both are retried
-    /// briefly before concluding that cdpgate is not running.
-    static PipeIo open(String pipeName) {
-        var path = "\\\\.\\pipe\\" + pipeName;
-        var deadline = System.currentTimeMillis() + 3000;
-        try (var scratch = Arena.ofConfined()) {
-            var capture = newCaptureSegment(scratch);
-            var name = scratch.allocateFrom(path, StandardCharsets.UTF_16LE);
-            MemorySegment handle;
-            while (true) {
-                try {
-                    handle = (MemorySegment) CreateFileW.invoke(capture, name, GENERIC_READ | GENERIC_WRITE, 0,
-                        MemorySegment.NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, MemorySegment.NULL);
-                } catch (Throwable t) { throw new RuntimeException(t); }
-                var code = lastErrorFrom(capture);
-                if (!isInvalid(handle) || (code != 2 && code != 231) || System.currentTimeMillis() > deadline) break;
-                try { Thread.sleep(40); } catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
-            }
-            if (isInvalid(handle)) {
-                var err = lastError("CreateFileW(" + path + ")", capture);
-                throw new GateDeniedException("cdpgate is not running (no pipe " + path + ")",
-                    "start cdpgate.exe; it lives in the tray and owns the browser. " + err.getMessage());
-            }
-            return new PipeIo(handle);
-        }
+    /// The named pipe on Windows, the Unix domain socket elsewhere -- see GatePlatform.
+    static FrameIo open(String pipeName) {
+        return GatePlatform.WINDOWS ? PipeClient.open(pipeName) : SocketClient.open(pipeName);
     }
 }

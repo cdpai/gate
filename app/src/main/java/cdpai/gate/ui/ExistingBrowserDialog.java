@@ -35,14 +35,18 @@ public final class ExistingBrowserDialog implements ExistingBrowserPrompt {
         watch.play();
         stage.setOnHidden(x -> { watch.stop(); result.complete(Choice.CANCEL); });
         Runnable closeAll = () -> { result.complete(Choice.CLOSE_WINDOWS); stage.close(); };
+        var mac = !cdpai.gate.client.GatePlatform.WINDOWS;
         var root = new VBox(10,
-            ApprovalParts.line("Vivaldi is running without cdpgate. Please quit it: Vivaldi menu, File, Exit.", "#333"),
+            ApprovalParts.line(mac ? "Vivaldi is running without cdpgate. Please quit it: Vivaldi menu, Quit Vivaldi (Cmd+Q)."
+                : "Vivaldi is running without cdpgate. Please quit it: Vivaldi menu, File, Exit.", "#333"),
             ApprovalParts.small("Answer yes if Vivaldi asks to close its tabs. cdpgate is waiting, and starts Vivaldi again"
                 + " under its protection the moment it has exited, with every profile and tab that was open. Sessions are backed up"
                 + " before it starts again. This window closes by itself.", "#333"),
-            ApprovalParts.small("Vivaldi has " + b.windowCount() + " window(s) open. Letting cdpgate close them from outside"
+            mac ? ApprovalParts.small("Or let cdpgate ask Vivaldi to quit. That is an ordinary quit, the same as Cmd+Q;"
+                    + " anything typed into a page and not yet submitted is lost.", "#8a4b00")
+                : ApprovalParts.small("Vivaldi has " + b.windowCount() + " window(s) open. Letting cdpgate close them from outside"
                 + " is less safe: with several windows only the last one is restored, and Vivaldi may keep running with no window.", "#8a4b00"),
-            new HBox(8, ApprovalWindow.button("F2  Close the windows for me", "#8a4b00", closeAll),
+            new HBox(8, ApprovalWindow.button(mac ? "F2  Quit Vivaldi for me" : "F2  Close the windows for me", "#8a4b00", closeAll),
                 ApprovalWindow.button("Esc  Leave Vivaldi running, don't start cdpgate's", "#777", stage::close)));
         root.setPadding(new Insets(14));
         root.setPrefWidth(540);

@@ -11,7 +11,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import cdpai.gate.access.Scope;
 import cdpai.gate.access.ScopePolicy;
-import cdpai.gate.client.win.PipeIo;
+import cdpai.gate.client.FrameIo;
 
 /// One browser link fanned out to every approved consumer. Consumers pick colliding "id"s, so
 /// each request is renumbered upstream and the reply mapped back. A session belongs to the
@@ -25,7 +25,7 @@ public final class CdpHub {
     /// cdpgate owns the browser's lifetime; no consumer may end or crash it.
     static final Set<String> ALWAYS_DENIED = Set.of("Browser.close", "Browser.crash", "Browser.crashGpuProcess");
 
-    final PipeIo browser;
+    final FrameIo browser;
     final Function<String, String> dirOf;
     final TabPlacement placement;
     final TargetInventory inventory;
@@ -39,7 +39,7 @@ public final class CdpHub {
     volatile ConsumerLink autoAttachOwner;
 
     /// `dirOf` names the profile folder of a context; `placement` decides where new tabs go.
-    public CdpHub(PipeIo browser, TargetInventory inventory, Function<String, String> dirOf, TabPlacement placement) {
+    public CdpHub(FrameIo browser, TargetInventory inventory, Function<String, String> dirOf, TabPlacement placement) {
         this.browser = browser;
         this.inventory = inventory;
         this.dirOf = dirOf;
