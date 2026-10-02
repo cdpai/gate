@@ -11,7 +11,7 @@ import javafx.scene.layout.VBox;
 import cdpai.gate.access.Approval;
 import cdpai.gate.access.Scope;
 import cdpai.gate.browser.ProfileMap;
-import cdpai.gate.win.RemoteProcessInfo;
+import cdpai.gate.browser.ProcInfo;
 
 /// The read-only parts of the approval window: who is asking, what they are about to run, and
 /// exactly what they ask for. Everything is shown in full, in scrollable boxes where it is long.
@@ -30,8 +30,8 @@ final class ApprovalParts {
             : "app \"" + r.app() + "\" · PID " + r.client().pid() + " · identified by the kernel";
         var meta = small(who, GREY);
         return new VBox(3, new HBox(8, name, badge), meta,
-            box("full command", RemoteProcessInfo.commandLine(r.client().pid())),
-            box("working directory", RemoteProcessInfo.currentDirectory(r.client().pid())));
+            box("full command", ProcInfo.commandLine(r.client().pid())),
+            box("working directory", ProcInfo.currentDirectory(r.client().pid())));
     }
 
     static Node box(String caption, Optional<String> content) {

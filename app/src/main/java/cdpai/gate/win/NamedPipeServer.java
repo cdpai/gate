@@ -14,7 +14,7 @@ import static cdpai.gate.win.NamedPipeApi.*;
 /// Windows user, and whose accepted connections are identified by the kernel rather than trusted
 /// on their word. One instance is created per accepted client (the standard Win32 multi-instance
 /// pattern) so a slow consumer never blocks a new one from connecting.
-public final class NamedPipeServer implements AutoCloseable {
+public final class NamedPipeServer implements cdpai.gate.ConsumerServer, AutoCloseable {
 
     final String pipePath;
 
@@ -26,7 +26,7 @@ public final class NamedPipeServer implements AutoCloseable {
     /// Call this in a loop from a dedicated accept thread -- each call creates a fresh pipe
     /// instance, so the previous connection's handling never delays the next accept. All
     /// allocations here are scratch, freed the moment the connection is handed off.
-    public Accepted accept() {
+    @Override public Accepted accept() {
         MemorySegment handle;
         try (var scratch = Arena.ofConfined()) {
             var sa = UserOnlySecurity.buildSecurityAttributes(scratch);
@@ -77,6 +77,4 @@ public final class NamedPipeServer implements AutoCloseable {
     }
 
     @Override public void close() {}
-
-    public record Accepted(PeerIdentity peer, PipeIo io) {}
 }

@@ -35,7 +35,7 @@ public final class CategoryClassifier {
 
         if (SHELLS.contains(name)) return AnchorCategory.SHELL_OR_TAB;
 
-        if (AGENTS.contains(name)) return AnchorCategory.AGENT_SESSION;
+        if (isAgent(node)) return AnchorCategory.AGENT_SESSION;
 
         return AnchorCategory.ORDINARY_PROCESS;
     }

@@ -10,8 +10,6 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import cdpai.gate.hub.CdpHub;
 import cdpai.gate.hub.TabPlacement;
 import cdpai.gate.hub.TargetInventory;
-import cdpai.gate.win.VivaldiLauncher;
-import cdpai.gate.win.VivaldiProcess;
 
 /// Owns the browser's lifetime. Starting means: if the browser is already running on these
 /// profiles without cdpgate, ask the user to quit it from its own menu -- the one close path measured
@@ -34,7 +32,7 @@ public final class BrowserSupervisor {
     final GateSettings settings;
     final ProfileMap profiles = new ProfileMap();
     volatile State state = State.STOPPED;
-    volatile VivaldiProcess vivaldi;
+    volatile LaunchedBrowser vivaldi;
     volatile CdpHub hub;
     volatile ProfileLoader loader;
     volatile Consumer<String> status = s -> {};
@@ -54,7 +52,7 @@ public final class BrowserSupervisor {
 
     public String browserName() { return "vivaldi"; }
 
-    public long browserPid() { var v = vivaldi; return v == null ? -1 : v.pid; }
+    public long browserPid() { var v = vivaldi; return v == null ? -1 : v.pid(); }
 
     public boolean openProfile(String dir) { var l = loader; return l != null && state == State.RUNNING && l.open(dir); }
 
@@ -70,11 +68,11 @@ public final class BrowserSupervisor {
         var order = ls.launchOrder();
         status.accept("launching " + browserName() + " with " + profiles.nameOf(order.getFirst()));
         var extra = new ArrayList<>(List.of("--profile-directory=" + order.getFirst()));
-        vivaldi = VivaldiLauncher.launch(settings.browserExe(), settings.userDataDir(), extra);
+        vivaldi = BrowserLauncher.launch(settings.browserExe(), settings.userDataDir(), extra);
         var inventory = new TargetInventory();
         var l = new ProfileLoader(settings, profiles, inventory);
         loader = l;
-        hub = new CdpHub(vivaldi.cdp, inventory, profiles::dirOf,
+        hub = new CdpHub(vivaldi.cdp(), inventory, profiles::dirOf,
             new TabPlacement(this::defaultContext, profiles::dirOf, d -> profiles.contextOf(d).orElse(null), l::openTab));
         loader.holdIdentification(true);
         inventory.onContextAppeared(loader::onContextAppeared);
@@ -125,7 +123,7 @@ public final class BrowserSupervisor {
         ProfileLoader.sleep(1500);
     }
 
-    void stopped(VivaldiProcess which) {
+    void stopped(LaunchedBrowser which) {
         if (which != vivaldi) return;
         state = State.STOPPED;
         profiles.clear();

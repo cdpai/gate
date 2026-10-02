@@ -29,7 +29,7 @@ public final class ProcessTree {
     public List<String> childImageNames(long pid) {
         return kids.getOrDefault(pid, List.of()).stream()
             .map(c -> c.info().command().orElse("").toLowerCase())
-            .map(c -> { var i = c.lastIndexOf('\\'); return i < 0 ? c : c.substring(i + 1); })
+            .map(c -> { var i = Math.max(c.lastIndexOf('\\'), c.lastIndexOf('/')); return i < 0 ? c : c.substring(i + 1); })
             .toList();
     }
 

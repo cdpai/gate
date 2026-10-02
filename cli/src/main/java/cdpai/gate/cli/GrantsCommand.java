@@ -37,7 +37,7 @@ final class GrantsCommand implements Callable<Integer> {
         }
     }
 
-    static String name(String path) { var i = path.lastIndexOf('\\'); return i < 0 ? path : path.substring(i + 1); }
+    static String name(String path) { var i = Math.max(path.lastIndexOf('\\'), path.lastIndexOf('/')); return i < 0 ? path : path.substring(i + 1); }
 
     static String list(com.fasterxml.jackson.databind.JsonNode arr, String none) {
         if (arr.isMissingNode()) return none;

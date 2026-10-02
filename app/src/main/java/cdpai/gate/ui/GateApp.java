@@ -25,7 +25,11 @@ public final class GateApp extends Application {
     PassphraseGate passphraseGate;
     KeyedAppStore keyedStore;
 
-    public static void main(String[] args) { launch(args); }
+    public static void main(String[] args) {
+        // macOS: a menu-bar app, not a Dock icon. Must be set before AWT (the tray) initialises.
+        System.setProperty("apple.awt.UIElement", "true");
+        launch(args);
+    }
 
     @Override public void init() {
         Platform.setImplicitExit(false);

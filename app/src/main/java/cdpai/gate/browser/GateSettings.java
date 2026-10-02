@@ -9,7 +9,9 @@ import com.fasterxml.jackson.dataformat.toml.TomlMapper;
 /// user's real profile set. Only a trial passes a scratch folder here.
 public record GateSettings(String browserExe, String userDataDir, String pipe) {
 
-    static final String DEFAULT_EXE = "C:\\user\\Apps\\Vivaldi\\Application\\vivaldi.exe";
+    static final String DEFAULT_EXE = cdpai.gate.client.GatePlatform.WINDOWS
+        ? "C:\\user\\Apps\\Vivaldi\\Application\\vivaldi.exe"
+        : "/Applications/Vivaldi.app/Contents/MacOS/Vivaldi";
 
     public static Path defaultPath() {
         return Path.of(System.getProperty("user.home"), "cdpai", "gate", "settings.toml");
@@ -44,6 +46,8 @@ public record GateSettings(String browserExe, String userDataDir, String pipe) {
     public Path defaultUserDataDir() {
         var standalone = Path.of(browserExe).getParent().getParent().resolve("User Data");
         if (Files.isDirectory(standalone)) return standalone;
+        if (!cdpai.gate.client.GatePlatform.WINDOWS)
+            return Path.of(System.getProperty("user.home"), "Library", "Application Support", "Vivaldi");
         return Path.of(System.getenv("LOCALAPPDATA"), "Vivaldi", "User Data");
     }
 }

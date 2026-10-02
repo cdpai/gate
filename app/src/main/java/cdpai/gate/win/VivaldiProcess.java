@@ -8,7 +8,7 @@ import static cdpai.gate.win.ProcessLaunchApi.*;
 
 /// A launched Vivaldi holding its own CDP pipe link and native process handle. This is the sole
 /// link to the browser -- cdpgate owns it, nothing else can open another.
-public final class VivaldiProcess implements AutoCloseable {
+public final class VivaldiProcess implements cdpai.gate.browser.LaunchedBrowser {
 
     public final long pid;
     public final PipeIo cdp;
@@ -20,7 +20,7 @@ public final class VivaldiProcess implements AutoCloseable {
         this.cdp = cdp;
     }
 
-    public boolean isAlive() { return ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false); }
+    @Override public boolean isAlive() { return ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false); }
 
     /// Graceful shutdown via the CDP method itself, falling back to a hard kill if it doesn't
     /// exit in time. Prefer this over close() when the browser should quit cleanly.
@@ -32,9 +32,13 @@ public final class VivaldiProcess implements AutoCloseable {
         } catch (Throwable t) { kill(); }
     }
 
-    public void kill() {
+    @Override public void kill() {
         try { TerminateProcess.invoke(processHandle, 1); } catch (Throwable ignored) {}
     }
+
+    @Override public long pid() { return pid; }
+
+    @Override public cdpai.gate.client.FrameIo cdp() { return cdp; }
 
     @Override public void close() {
         cdp.close();
