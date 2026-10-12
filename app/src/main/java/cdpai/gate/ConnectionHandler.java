@@ -39,7 +39,8 @@ final class ConnectionHandler {
                     server.browser.hub() != null, server.browser.profiles().entries())); io.close(); }
                 case "grants" -> { io.writeFrame(GateReplies.grants(server, server.browser.profiles())); io.close(); }
                 case "connect" -> connect(hs.get(), null, null);
-                default -> deny("unknown op " + hs.get().op(), "use op connect, profiles or grants");
+                case "trust" -> trust(hs.get());
+                default -> deny("unknown op " + hs.get().op(), "use op connect, trust, profiles or grants");
             }
         } catch (Exception e) { io.close(); }
     }
@@ -77,7 +78,7 @@ final class ConnectionHandler {
         if (grant == null) {
             var d = server.approval.decide(request(Kind.ATTESTED, chain, tree, requested, label, null, null));
             if (d.isEmpty()) { deny("not approved", "the request was declined or its window closed"); return; }
-            grant = server.grants.create(peer.imagePath(), d.get().anchor(), d.get().durationMinutes(), d.get().capMinutes(), d.get().scope());
+            grant = server.grants.create(peer.imagePath(), d.get().anchor(), d.get().durationMinutes(), d.get().capMinutes(), d.get().scope(), d.get().blanket());
         }
         var effective = grant.scope().narrowedTo(requested);
         openProfiles(effective);
@@ -86,6 +87,25 @@ final class ConnectionHandler {
         hub.addConsumer(link, effective);
         if (v2) io.writeFrame(GateReplies.approved("attested", grant.expiresAt(), effective, server.browser.profiles()));
         pump(hub, link, firstCdpFrame);
+    }
+
+    /// `cdpg trust`: no CDP flows on this connection. It ends with a grant anchored at the chosen
+    /// ancestor that covers every program under it, or with a refusal.
+    void trust(GateHandshake hs) {
+        var scope = scopeOf(hs);
+        if (scope == null) return;
+        var tree = ProcessTree.snapshot();
+        var label = hs.app() != null ? hs.app() : imageName(peer.imagePath());
+        switch (TrustTarget.pick(tree.decorate(raw), tree, hs.pid())) {
+            case TrustTarget.Refused r -> deny(r.error(), r.hint());
+            case TrustTarget.Found f -> {
+                var d = server.trustApproval.decide(new TrustApproval.Request(peer, f.node(), scope, label, server.browser.profiles().entries()));
+                if (d.isEmpty()) { deny("not trusted", "the request was declined or its window closed"); return; }
+                var g = server.grants.create(null, f.node(), d.get().minutes(), TrustApproval.MAX_MINUTES, d.get().scope(), false);
+                io.writeFrame(GateReplies.approved("trusted", g.expiresAt(), g.scope(), server.browser.profiles()));
+                io.close();
+            }
+        }
     }
 
     void keyed(CdpHub hub, GateHandshake hs, Scope requested, String label) {

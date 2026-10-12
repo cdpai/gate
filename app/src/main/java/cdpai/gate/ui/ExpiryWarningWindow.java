@@ -14,17 +14,21 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
 import cdpai.gate.GateServer;
+import cdpai.gate.access.PassphraseGate;
 
-/// Five minutes before an attested grant with a live connection ends: extend it (by its own
-/// duration, never past the cap its anchor earned) or let it lapse. Closes itself at expiry.
-/// No text input, so bare letters are the shortcuts.
+/// Five minutes before an attested grant with a live connection ends: extend it or let it lapse.
+/// Extend adds the grant's own duration (at least half an hour) on top of what is left, never leaving
+/// more than its cap, and the window shows the new end for a moment before closing so it is plain
+/// that it worked. Closes itself at expiry. No text input, so bare letters are the shortcuts.
 final class ExpiryWarningWindow {
 
-    static void show(GateServer server, GateServer.Expiring e) {
+    static void show(GateServer server, PassphraseGate gate, GateServer.Expiring e) {
         var stage = new Stage(StageStyle.UTILITY);
         var countdown = new Label();
         countdown.setStyle("-fx-font-size: 13; -fx-font-weight: bold;");
+        var done = new boolean[] { false };
         Runnable tick = () -> {
+            if (done[0]) return;
             var s = Math.max(0, Duration.between(Instant.now(), e.expiresAt()).toSeconds());
             countdown.setText(e.label() + " loses access in " + "%d:%02d".formatted(s / 60, s % 60));
             if (s == 0) stage.close();
@@ -34,10 +38,21 @@ final class ExpiryWarningWindow {
         ticker.setCycleCount(Animation.INDEFINITE);
         ticker.play();
         stage.setOnHidden(x -> ticker.stop());
-        Runnable extend = () -> { server.extendGrant(e.grantId()); stage.close(); };
+        Runnable extend = () -> {
+            if (done[0]) return;
+            var g = server.activeGrants().stream().filter(x -> x.id().equals(e.grantId())).findFirst();
+            if (g.isEmpty()) GrantExtend.alreadyEnded();
+            var r = g.flatMap(x -> GrantExtend.run(server, gate, x));
+            if (r.isEmpty()) { stage.close(); return; }
+            done[0] = true;
+            countdown.setText(e.label() + ": extended, " + GrantExtend.until(r.get()));
+            var close = new PauseTransition(javafx.util.Duration.seconds(2));
+            close.setOnFinished(x -> stage.close());
+            close.play();
+        };
         var buttons = new HBox(8, ApprovalWindow.button("E  Extend", "#2e6da8", extend),
             ApprovalWindow.button("L  Let it expire", "#777", stage::close));
-        var root = new VBox(10, countdown, ApprovalParts.small("Extending keeps the same anchor and scope; it cannot make the approval wider or longer than it first earned.", "#555"), buttons);
+        var root = new VBox(10, countdown, ApprovalParts.small("Extending keeps the same anchor and scope, and adds time up to the cap this approval first earned.", "#555"), buttons);
         root.setPadding(new Insets(14));
         root.setPrefWidth(420);
         var scene = new Scene(root);

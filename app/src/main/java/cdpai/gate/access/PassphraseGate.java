@@ -24,7 +24,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 ///   (every domain, every profile -- "very controversial") re-asks the passphrase before Approve
 ///   is clickable, even though cdpgate is already unlocked. See `cdpai.gate.ui.ApprovalWindow`.
 /// - **Tier 2 (blanket mode, capped)**: a separate, explicit "trust everything" toggle, confirmed
-///   TWICE (typed twice, as deliberate extra friction) and hard-capped at
+///   TWICE (typed twice, as deliberate extra friction) and for a duration the human picks, at most
 ///   `BLANKET_MODE_MAX_MINUTES` regardless of anything else -- auto-reverts, never renewed just by
 ///   staying active. Explicitly for testing convenience, not normal operation. See
 ///   `BlanketModeApproval`.
@@ -33,7 +33,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 /// for bearer tokens -- the plain passphrase is never persisted anywhere and there is no reset.
 public final class PassphraseGate {
 
-    public static final int BLANKET_MODE_MAX_MINUTES = 60;
+    public static final int BLANKET_MODE_MAX_MINUTES = 240;
+    public static final int[] BLANKET_MODE_CHOICES = {30, 60, 120, 240};
 
     final Path storePath;
     final ObjectMapper mapper = new ObjectMapper();
@@ -99,13 +100,24 @@ public final class PassphraseGate {
         return remaining.isNegative() ? Duration.ZERO : remaining;
     }
 
-    /// Activates blanket mode for the full `BLANKET_MODE_MAX_MINUTES` -- always the hard cap,
-    /// never a caller-chosen duration, so there is nothing to negotiate here. The caller (the tray
+    /// Activates blanket mode for `minutes`, clamped to 1..`BLANKET_MODE_MAX_MINUTES`. The caller (the tray
     /// menu action) is responsible for having already confirmed the passphrase TWICE before
     /// calling this -- this method itself does no verification, matching how Tier 1's own
     /// confirmation in ApprovalWindow works (verify in the UI layer, then just act).
-    public void activateBlanketMode() {
-        blanketModeExpiresAt = Instant.now().plusSeconds(BLANKET_MODE_MAX_MINUTES * 60L);
+    public void activateBlanketMode(int minutes) {
+        blanketModeExpiresAt = Instant.now().plusSeconds(Math.clamp(minutes, 1, BLANKET_MODE_MAX_MINUTES) * 60L);
+    }
+
+    /// Adds `minutes` to what is left of blanket mode (or starts it from now), never leaving more than
+    /// the cap. Returns the new end. Same contract as activation: the caller has already checked the passphrase.
+    public Instant extendBlanketMode(int minutes) {
+        var now = Instant.now();
+        var current = blanketModeExpiresAt;
+        var from = current != null && current.isAfter(now) ? current : now;
+        var added = from.plusSeconds(Math.clamp(minutes, 1, BLANKET_MODE_MAX_MINUTES) * 60L);
+        var ceiling = now.plusSeconds(BLANKET_MODE_MAX_MINUTES * 60L);
+        blanketModeExpiresAt = added.isAfter(ceiling) ? ceiling : added;
+        return blanketModeExpiresAt;
     }
 
     public void deactivateBlanketModeNow() { blanketModeExpiresAt = null; }

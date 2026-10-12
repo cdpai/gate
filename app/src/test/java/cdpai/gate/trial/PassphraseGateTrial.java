@@ -37,7 +37,7 @@ public class PassphraseGateTrial {
         // Tier 2: blanket mode.
         check("blanket mode starts inactive", !fresh.isBlanketModeActive());
         check("blanket mode remaining is zero when inactive", fresh.blanketModeRemaining().isZero());
-        fresh.activateBlanketMode();
+        fresh.activateBlanketMode(PassphraseGate.BLANKET_MODE_MAX_MINUTES);
         check("blanket mode active right after activation", fresh.isBlanketModeActive());
         check("blanket mode remaining is at most the hard cap",
             fresh.blanketModeRemaining().toMinutes() <= PassphraseGate.BLANKET_MODE_MAX_MINUTES);
@@ -45,6 +45,14 @@ public class PassphraseGateTrial {
             fresh.blanketModeRemaining().toMinutes() >= PassphraseGate.BLANKET_MODE_MAX_MINUTES - 1);
         fresh.deactivateBlanketModeNow();
         check("deactivateBlanketModeNow turns it off immediately", !fresh.isBlanketModeActive());
+        check("the hard cap is four hours", PassphraseGate.BLANKET_MODE_MAX_MINUTES == 240);
+        fresh.activateBlanketMode(30);
+        check("a chosen 30 minutes runs about 30 minutes",
+            fresh.blanketModeRemaining().toMinutes() >= 29 && fresh.blanketModeRemaining().toMinutes() < 30 + 1);
+        fresh.activateBlanketMode(10_000);
+        check("a duration above the cap is clamped to it",
+            fresh.blanketModeRemaining().toMinutes() <= PassphraseGate.BLANKET_MODE_MAX_MINUTES);
+        fresh.deactivateBlanketModeNow();
 
         Files.deleteIfExists(storePath);
         Files.deleteIfExists(dir);

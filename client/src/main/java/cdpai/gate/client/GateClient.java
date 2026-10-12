@@ -53,6 +53,22 @@ public final class GateClient implements AutoCloseable {
         }
     }
 
+    /// Asks cdpgate to trust an ancestor of this process -- `pid`, or the nearest agent session such as
+    /// claude.exe when null -- and every program it starts, for hours. A human approves with the
+    /// passphrase. Returns the grant; throws GateDeniedException if refused.
+    public static JsonNode trust(String pipeName, String app, Long pid, ScopeRequest scope) {
+        try (var c = new GateClient(pipeName)) {
+            var req = MAPPER.createObjectNode().put("v", 2).put("op", "trust").put("app", app);
+            if (pid != null) req.put("pid", pid);
+            scope.writeInto(req);
+            c.io.writeFrame(gateFrame(req));
+            var reply = c.readGateReply();
+            if (!reply.path("ok").asBoolean(false))
+                throw new GateDeniedException(reply.path("error").asText("denied"), reply.path("hint").asText(null));
+            return reply;
+        }
+    }
+
     void handshake(String app, ScopeRequest scope, GateKey key) {
         var req = MAPPER.createObjectNode().put("v", 2).put("op", "connect").put("app", app);
         scope.writeInto(req);

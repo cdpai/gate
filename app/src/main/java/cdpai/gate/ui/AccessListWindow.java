@@ -26,13 +26,15 @@ public final class AccessListWindow {
 
     final GateServer server;
     final ProfileMap profiles;
+    final PassphraseGate passphraseGate;
     final Stage stage = new Stage();
     final VBox rows = new VBox(6);
     Timeline ticker;
 
-    public AccessListWindow(GateServer server, ProfileMap profiles) {
+    public AccessListWindow(GateServer server, ProfileMap profiles, PassphraseGate passphraseGate) {
         this.server = server;
         this.profiles = profiles;
+        this.passphraseGate = passphraseGate;
     }
 
     public void show() {
@@ -71,8 +73,8 @@ public final class AccessListWindow {
         var revoke = new Hyperlink("revoke");
         revoke.setOnAction(e -> { server.revokeGrant(g.id()); refresh(); });
         var extend = new Hyperlink("extend");
-        extend.setOnAction(e -> { server.extendGrant(g.id()); refresh(); });
-        return row("attested", imageName(g.clientImagePath()), "anchored at " + imageName(g.anchorImagePath()) + " (" + g.anchorPid() + ")",
+        extend.setOnAction(e -> { GrantExtend.run(server, passphraseGate, g); refresh(); });
+        return row(g.anyClient() ? "trusted" : "attested", g.anyClient() ? "any program" : imageName(g.clientImagePath()), (g.anyClient() ? "under " : "anchored at ") + imageName(g.anchorImagePath()) + " (" + g.anchorPid() + ")",
             g.scope(), g.expiresAt(), server.liveConnections(g.id()), false, extend, revoke);
     }
 

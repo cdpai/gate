@@ -44,12 +44,20 @@ public class UiSnapshotTrial {
             new Scope(List.of("youtube.com"), List.of("Default"), 30 * 1440), "yt_live_chats", "3f9a1c0d22b7e418", entries,
             "first request from this key"), gate, d -> {}).show());
 
+        var target = chain.get(Math.min(3, chain.size() - 1));
+        shoot(out, "trust-green", () -> new TrustWindow(new TrustApproval.Request(peer, target, new Scope(List.of("facebook.com"), List.of("Default"), 480),
+            "cdpg trust", entries), gate, d -> {}).show());
+        shoot(out, "trust-amber", () -> new TrustWindow(new TrustApproval.Request(peer, target, new Scope(null, List.of("Default"), 1440),
+            "cdpg trust", entries), gate, d -> {}).show());
+        shoot(out, "trust-red", () -> new TrustWindow(new TrustApproval.Request(peer, target, new Scope(null, null, 2880),
+            "cdpg trust", entries), gate, d -> {}).show());
+
         var settings = new GateSettings("C:\\Program Files\\Vivaldi\\Application\\vivaldi.exe", null, "none");
         var server = new GateServer(new BrowserSupervisor(settings), "cdpai-gate-ui-trial-unused", r -> java.util.Optional.empty(),
             new KeyedAppStore(Files.createTempDirectory("ui").resolve("k.json")));
         TestGrants.add(server, peer.imagePath(), chain.get(Math.min(3, chain.size() - 1)), 120, scoped);
-        shoot(out, "access-list", () -> new AccessListWindow(server, new ProfileMap()).show());
-        shoot(out, "expiry-warning", () -> ExpiryWarningWindow.show(server, new GateServer.Expiring("g1", "netrec", Instant.now().plusSeconds(290))));
+        shoot(out, "access-list", () -> new AccessListWindow(server, new ProfileMap(), gate).show());
+        shoot(out, "expiry-warning", () -> ExpiryWarningWindow.show(server, gate, new GateServer.Expiring("g1", "netrec", Instant.now().plusSeconds(290))));
         shoot(out, "existing-browser", () -> new ExistingBrowserDialog().build(new ExistingBrowser(ProcessHandle.current().pid(), "vivaldi.exe", 1), new java.util.concurrent.CompletableFuture<>()));
         System.exit(0);
     }

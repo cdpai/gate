@@ -3,6 +3,7 @@ package cdpai.gate;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
@@ -36,6 +37,7 @@ public final class GateServer {
     final ConcurrentHashMap<ConsumerLink, LiveLink> links = new ConcurrentHashMap<>();
     final Set<String> warned = ConcurrentHashMap.newKeySet();
     volatile Consumer<Expiring> onExpiring = e -> {};
+    volatile TrustApproval trustApproval = r -> Optional.empty();
 
     public GateServer(BrowserSupervisor browser, String pipeName, Approval approval, KeyedAppStore keyed) {
         this.browser = browser;
@@ -45,6 +47,8 @@ public final class GateServer {
     }
 
     public void onExpiring(Consumer<Expiring> l) { onExpiring = l; }
+
+    public void trustApproval(TrustApproval t) { trustApproval = t; }
 
     public void run() {
         Thread.ofPlatform().name("cdpgate-sweep").daemon().start(this::sweep);
@@ -73,7 +77,10 @@ public final class GateServer {
 
     public void clearKeyedFlag(String id) { keyed.clearFlag(id); }
 
-    public void extendGrant(String id) { grants.extend(id); warned.remove(id); }
+    /// Empty when the grant had already ended.
+    public Optional<Grant> extendGrant(String id) { var g = grants.extend(id); warned.remove(id); return g; }
+
+    public void extendBlanketGrants(Instant newEnd) { grants.extendBlanketGrants(newEnd); }
 
     public void revokeAllNow() {
         grants.clear();

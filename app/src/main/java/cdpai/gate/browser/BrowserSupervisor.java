@@ -36,13 +36,20 @@ public final class BrowserSupervisor {
     volatile CdpHub hub;
     volatile ProfileLoader loader;
     volatile Consumer<String> status = s -> {};
-    volatile Runnable onStopped = () -> {};
+    volatile Consumer<String> onStopped = m -> {};
+    volatile String lastStatus = "starting";
 
     public BrowserSupervisor(GateSettings settings) { this.settings = settings; }
 
-    public void onStatus(Consumer<String> l) { status = l; }
+    public void onStatus(Consumer<String> l) { status = s -> { lastStatus = s; l.accept(s); }; }
 
-    public void onStopped(Runnable r) { onStopped = r; }
+    /// Told why the browser link ended: the browser exited, or the link broke while it kept running.
+    public void onStopped(Consumer<String> r) { onStopped = r; }
+
+    /// The last progress message -- meaningful only while starting or waiting for the old browser to close.
+    public String lastStatus() { return lastStatus; }
+
+    public GateSettings settings() { return settings; }
 
     public State state() { return state; }
 
@@ -131,9 +138,14 @@ public final class BrowserSupervisor {
         hub = null;
         loader = null;
         if (h != null) h.disconnectAll();
+        for (var i = 0; i < 12 && which.isAlive(); i++) ProfileLoader.sleep(250);
+        var stillAlive = which.isAlive();
         which.close();
-        status.accept(browserName() + " is not running");
-        onStopped.run();
+        var why = stillAlive
+            ? "lost the link to " + browserName() + " (pid " + which.pid() + ") although it is still running; quit it and start it again from the tray"
+            : browserName() + " has exited; cdpgate keeps guarding, start it again from the tray";
+        status.accept(why);
+        onStopped.accept(why);
     }
 
     /// The context the browser currently treats as default -- the profile used last.

@@ -8,7 +8,7 @@ import picocli.CommandLine.Command;
 @Command(name = "cdpg", mixinStandardHelpOptions = true, version = "cdpg 0.2",
     description = {"Gated CDP access through cdpgate's pipe.",
         "Start with `cdpg profiles`, then ask for only what you need: cdpg send Target.getTargets --profiles Work --domains youtube.com"},
-    subcommands = {ProfilesCommand.class, GrantsCommand.class, ApproveCommand.class, SendCommand.class, ListenCommand.class},
+    subcommands = {ProfilesCommand.class, GrantsCommand.class, ApproveCommand.class, TrustCommand.class, SendCommand.class, ListenCommand.class},
     footerHeading = "%nFor an agent session:%n",
     footer = {
         "  cdpgate owns the browser over a pipe; there is no debug port, so curl to localhost:<port> will not work.",
@@ -16,6 +16,7 @@ import picocli.CommandLine.Command;
         "  2. cdpg approve --profiles Work --domains youtube.com --minutes 120",
         "                                                          once, at the start: a human approves in a window,",
         "                                                          anchored at the agent; later calls pass silently",
+        "     or, for hours: cdpg trust --hours 24 --profiles Work --domains youtube.com   (passphrase; covers every program the session starts)",
         "  3. cdpg send Target.getTargets --profiles Work --domains youtube.com     the tabs you may use",
         "  4. cdpg send Runtime.evaluate '{\"expression\":\"document.title\"}' --target <tabId> --profiles ... --domains ...",
         "  Cookies: a profile has ONE jar for all sites, so an approval reaches every cookie in its profile(s);",

@@ -62,9 +62,10 @@ public final class GateApp extends Application {
         var server = new GateServer(browser, settings.pipe(), new BlanketModeApproval(new FxApproval(passphraseGate), passphraseGate), keyedStore);
         var tray = new TrayShell(primaryStage, browser, server, passphraseGate);
         tray.install();
-        browser.onStatus(s -> { System.err.println("cdpgate: " + s); tray.setStatus(s); });
-        browser.onStopped(() -> tray.notify("Vivaldi has exited. cdpgate keeps guarding; start it again from the tray."));
-        server.onExpiring(e -> Platform.runLater(() -> ExpiryWarningWindow.show(server, e)));
+        browser.onStatus(s -> System.err.println("cdpgate: " + s));
+        browser.onStopped(tray::notify);
+        server.trustApproval(new FxTrust(passphraseGate));
+        server.onExpiring(e -> Platform.runLater(() -> ExpiryWarningWindow.show(server, passphraseGate, e)));
         Thread.ofPlatform().name("cdpgate-server").start(server::run);
         tray.startBrowser();
     }
