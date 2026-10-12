@@ -13,7 +13,9 @@ public final class DurationChips {
             new Chip(240, "4h"), new Chip(480, "8h"), new Chip(1440, "1 day")},
         KEYED = {
             new Chip(60, "1h"), new Chip(240, "4h"), new Chip(1440, "1 day"), new Chip(7 * 1440, "7 days"),
-            new Chip(30 * 1440, "30 days")};
+            new Chip(30 * 1440, "30 days")},
+        TRUST = {
+            new Chip(240, "4h"), new Chip(480, "8h"), new Chip(720, "12h"), new Chip(1440, "1 day"), new Chip(2880, "2 days")};
 
     /// The chip to preselect: the largest one within both the cap and what the client asked for,
     /// or simply within the cap when the client did not say.

@@ -25,7 +25,7 @@ final class GrantsCommand implements Callable<Integer> {
             System.out.println("mode\twho\tanchor/key\tprofiles\tdomains\tleft\tlive");
             for (var g : r.path("grants")) {
                 var left = Duration.between(Instant.now(), Instant.parse(g.path("expiresAt").asText()));
-                var who = g.path("mode").asText().equals("keyed") ? g.path("app").asText() : name(g.path("client").asText());
+                var who = g.path("mode").asText().equals("keyed") ? g.path("app").asText() : g.path("anyClient").asBoolean() ? "any program" : name(g.path("client").asText());
                 var how = g.path("mode").asText().equals("keyed") ? "key " + g.path("key").asText() : name(g.path("anchor").asText()) + " (" + g.path("anchorPid").asText() + ")";
                 System.out.println(g.path("mode").asText() + "\t" + who + "\t" + how + "\t" + list(g.path("profiles"), "all") + "\t"
                     + list(g.path("domains"), "all") + "\t" + left.toMinutes() + "m\t" + g.path("live").asInt());

@@ -35,6 +35,7 @@ final class GateReplies {
     }
 
     static String hint(String mode, Scope scope) {
+        if (mode.equals("trusted")) return "every program started by the trusted process passes without a window until expiresAt, within this scope";
         if (scope.narrowedDimensions() == 2) return "scoped to profiles and domains: the longest approvals are available";
         var missing = !scope.profilesScoped() && !scope.domainsScoped() ? "profiles and domains"
             : !scope.profilesScoped() ? "profiles" : "domains";
@@ -59,7 +60,7 @@ final class GateReplies {
         var g = M.createObjectNode().put("ok", true);
         var arr = g.putArray("grants");
         for (var x : server.activeGrants()) {
-            var n = arr.addObject().put("mode", "attested").put("id", x.id()).put("client", x.clientImagePath())
+            var n = arr.addObject().put("mode", x.anyClient() ? "trusted" : "attested").put("id", x.id()).put("client", x.clientImagePath()).put("anyClient", x.anyClient())
                 .put("anchor", x.anchorImagePath()).put("anchorPid", x.anchorPid()).put("minutes", x.durationMinutes())
                 .put("expiresAt", x.expiresAt().toString()).put("live", server.liveConnections(x.id()));
             scopeInto(n, x.scope(), profiles);

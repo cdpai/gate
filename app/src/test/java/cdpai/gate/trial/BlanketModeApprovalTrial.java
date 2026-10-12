@@ -25,11 +25,11 @@ public class BlanketModeApprovalTrial {
         var keyed = new Approval.Request(Approval.Kind.KEYED, peer, List.of(self), ProcessTree.snapshot(), Scope.UNSCOPED, "app", "fp", List.of(), "first");
 
         check("off: the window decides", approval.decide(attested).isEmpty() && calls[0] == 1);
-        gate.activateBlanketMode();
+        gate.activateBlanketMode(PassphraseGate.BLANKET_MODE_MAX_MINUTES);
         var d = approval.decide(attested);
         check("on: the window is not consulted", calls[0] == 1 && d.isPresent());
         check("on: attested anchors at the client itself", d.get().anchor().pid() == 4242);
-        check("on: within the one-hour cap", d.get().durationMinutes() <= PassphraseGate.BLANKET_MODE_MAX_MINUTES);
+        check("on: within the four-hour cap", d.get().durationMinutes() <= PassphraseGate.BLANKET_MODE_MAX_MINUTES);
         check("on: keyed requests are approved too, with no anchor", approval.decide(keyed).orElseThrow().anchor() == null);
         gate.deactivateBlanketModeNow();
         approval.decide(attested);

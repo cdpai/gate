@@ -18,7 +18,9 @@ public interface Approval {
                    String app, String keyFingerprint, List<ProfileMap.Entry> profiles, String reason) {}
 
     /// `anchor` is null for a keyed decision.
-    record Decision(AncestryNode anchor, int durationMinutes, int capMinutes, Scope scope) {}
+    record Decision(AncestryNode anchor, int durationMinutes, int capMinutes, Scope scope, boolean blanket) {
+        public Decision(AncestryNode anchor, int durationMinutes, int capMinutes, Scope scope) { this(anchor, durationMinutes, capMinutes, scope, false); }
+    }
 
     Optional<Decision> decide(Request request);
 }

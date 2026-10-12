@@ -9,12 +9,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 /// The first frame of a connection. A v2 client opens with
 /// `{"gate":{"v":2,"op":"connect","app":..,"domains":[..],"profiles":[..],"minutes":N,"publicKey":..}}`
-/// or `{"gate":{"v":2,"op":"profiles"}}`, and hears a `{"gate":{..}}` reply before any CDP flows.
+/// or `{"gate":{"v":2,"op":"profiles"}}`, or `{"gate":{"v":2,"op":"trust","pid":N,..}}` (`cdpg trust`, pid optional), and hears a `{"gate":{..}}` reply before any CDP flows.
 /// A first frame that is plain CDP is a legacy client: attested, unscoped, no gate reply.
 /// Every field but `op` is optional; an absent list means "not narrowed", an absent `minutes`
 /// means "not specified" and is shown to the human as exactly that.
 public record GateHandshake(String op, String app, List<String> domains, List<String> profiles,
-                            Integer minutes, String publicKey) {
+                            Integer minutes, String publicKey, Long pid) {
 
     public static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -24,7 +24,8 @@ public record GateHandshake(String op, String app, List<String> domains, List<St
         if (!g.isObject() || !g.has("op")) return Optional.empty();
         return Optional.of(new GateHandshake(g.get("op").asText(), g.path("app").asText(null),
             strings(g, "domains"), strings(g, "profiles"),
-            g.hasNonNull("minutes") ? g.get("minutes").asInt() : null, g.path("publicKey").asText(null)));
+            g.hasNonNull("minutes") ? g.get("minutes").asInt() : null, g.path("publicKey").asText(null),
+            g.hasNonNull("pid") ? g.get("pid").asLong() : null));
     }
 
     public boolean keyed() { return publicKey != null && !publicKey.isBlank(); }

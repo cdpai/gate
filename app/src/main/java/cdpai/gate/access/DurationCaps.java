@@ -22,9 +22,12 @@ public final class DurationCaps {
 
     /// The fourth cap: how much the request reaches. Every profile and every website earns an hour
     /// at most, one of the two narrowed four hours, both narrowed nothing extra -- so the cheapest way
-    /// to a long approval is to ask for less.
+    /// to a long approval is to ask for less. A request for ONE profile and named websites is never
+    /// held below four hours by the other caps, except where they make an anchor unselectable (0).
     public static Result compute(AnchorCategory category, int hopsFromRequester, int descendantCount, Scope scope) {
         var base = compute(category, hopsFromRequester, descendantCount);
+        if (singleProfileNamedSites(scope) && base.minutes() > 0 && base.minutes() < SINGLE_PROFILE_FLOOR)
+            return new Result(SINGLE_PROFILE_FLOOR, "one profile and named websites (raised from " + base.minutes() + "m, " + base.boundBy() + ")");
         var byScope = BY_SCOPE_DIMENSIONS[scope.narrowedDimensions()];
         return byScope < base.minutes()
             ? new Result(byScope, scope.unscoped() ? "an unscoped request (every profile, every website)" : "a request narrowed only one way")
@@ -32,6 +35,11 @@ public final class DurationCaps {
     }
 
     static final int[] BY_SCOPE_DIMENSIONS = {60, 240, 1440};
+    static final int SINGLE_PROFILE_FLOOR = 240;
+
+    public static boolean singleProfileNamedSites(Scope s) {
+        return s.profiles() != null && s.profiles().size() == 1 && s.domains() != null && !s.domains().isEmpty();
+    }
 
     static int byHopDistance(int hops) {
         if (hops <= 2) return 1440;
