@@ -41,11 +41,6 @@
             <artifactId>luvjfx</artifactId>
             <version>${luvjfx.version}</version>
         </dependency>
-        <dependency>
-            <groupId>com.dustinredmond.fxtrayicon</groupId>
-            <artifactId>FXTrayIcon</artifactId>
-            <version>${fxtrayicon.version}</version>
-        </dependency>
         <!-- The classifier pulls in the platform natives the plain (classifier-less) artifact does
              not ship. javafx.platform is set per OS by the profiles below, so a build on a Mac
              bundles the Mac natives; the jar is therefore specific to the OS it was built on. -->

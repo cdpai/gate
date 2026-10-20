@@ -15,6 +15,7 @@ import cdpai.gate.browser.*;
 import leasegate.core.LeaseEngine;
 import leasegate.core.access.*;
 import leasegate.core.win.PeerIdentity;
+import leasegate.frame.*;
 import leasegate.ui.*;
 
 /// Renders every cdpgate window in-process with realistic data and writes each as a PNG, so the
@@ -38,7 +39,7 @@ public class UiSnapshotTrial {
         profiles.bind("CTX1", "Default", false);
         profiles.bind("CTX2", "Profile 4", true);
         var rules = new CdpRules(profiles);
-        var brand = new Brand("cdpgate", "#2e6da8", GateIcon.image(GateApp.class, "brand.png", "#2e6da8"));
+        var brand = new Brand("cdpgate", "#E5383B", new GateIcons(GateApp.class, "cdpgate"));
 
         var scoped = new CdpScope(List.of("youtube.com", "studio.youtube.com"), List.of("Default", "Profile 3"), 120);
         shoot(out, "approval-attested-scoped", () -> WindowPreview.approval(new Approval.Request<>(Approval.Kind.ATTESTED, peer, chain, tree,
@@ -61,7 +62,21 @@ public class UiSnapshotTrial {
         engine.grant(peer.imagePath(), chain.get(Math.min(3, chain.size() - 1)), 120, scoped);
         shoot(out, "access-list", () -> new AccessListWindow<>(engine, gate, brand).show());
         shoot(out, "expiry-warning", () -> ExpiryWarningWindow.show(engine, gate, brand, new LeaseEngine.Expiring("g1", "netrec", Instant.now().plusSeconds(290))));
-        shoot(out, "existing-browser", () -> new ExistingBrowserDialog().build(new ExistingBrowser(ProcessHandle.current().pid(), "vivaldi.exe", 1), new java.util.concurrent.CompletableFuture<>()));
+        var tray = new TrayShell[1];
+        Platform.runLater(() -> tray[0] = new TrayShell<>(new Stage(), engine, gate, brand, () -> "browser running · 3 profiles · 1 approval")
+            .addItem(TrayShell.item("Start Vivaldi under cdpgate", () -> {}))
+            .describe("guards the browser: its DevTools link", "https://github.com/cdpai/gate"));
+        Thread.sleep(300);
+        shoot(out, "home", () -> tray[0].home().show());
+        shoot(out, "about", () -> AboutWindow.show(brand, "guards the browser: its DevTools link", "https://github.com/cdpai/gate"));
+        shoot(out, "tray-popup", () -> new leasegate.tray.TrayMenu(brand.icon(), "cdpgate", "#E5383B", () -> "browser running · 3 profiles · 1 approval", () -> List.of(
+            TrayShell.item("Open the cdpgate window", () -> {}), TrayShell.item("Who has access…", () -> {}),
+            new javafx.scene.control.SeparatorMenuItem(), TrayShell.item("Start Vivaldi under cdpgate", () -> {}),
+            new javafx.scene.control.SeparatorMenuItem(), TrayShell.item("Blanket mode for testing (up to 4 h)…", () -> {}),
+            TrayShell.item("Revoke every attested approval now", () -> {}), new javafx.scene.control.SeparatorMenuItem(),
+            TrayShell.item("Check for updates…", () -> {}), TrayShell.item("About cdpgate", () -> {}),
+            new javafx.scene.control.SeparatorMenuItem(), TrayShell.item("Quit cdpgate (Vivaldi closes too)", () -> {}))).show(1500, 900));
+        shoot(out, "existing-browser", () -> new ExistingBrowserDialog(brand).build(new ExistingBrowser(ProcessHandle.current().pid(), "vivaldi.exe", 1), new java.util.concurrent.CompletableFuture<>()));
         System.exit(0);
     }
 

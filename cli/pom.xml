@@ -113,7 +113,15 @@
                             <icon>${project.basedir}/src/main/jr/cdpg.ico</icon>
                             <javaVersion>25+</javaVersion>
                             <jvmMode>dll</jvmMode>
+                            <!-- One call, then it exits: a small heap, the Serial collector, C1 only. Named explicitly,
+                                 because a JVM that names none gets G1 with a worker per core and a 32 MB mark stack. -->
                             <vmArgs>
+                                <vmArg>-Xms8m</vmArg>
+                                <vmArg>-Xmx64m</vmArg>
+                                <vmArg>-Xss512k</vmArg>
+                                <vmArg>-XX:+UseSerialGC</vmArg>
+                                <vmArg>-XX:TieredStopAtLevel=1</vmArg>
+                                <vmArg>-XX:ReservedCodeCacheSize=24m</vmArg>
                                 <vmArg>--enable-native-access=ALL-UNNAMED</vmArg>
                             </vmArgs>
                             <jarUrl>https://github.com/cdpai/gate/releases/download/v${project.version}/cdpg.jar</jarUrl>

@@ -14,6 +14,7 @@ import cdpai.gate.browser.GateSettings;
 import cdpai.gate.client.GateClient;
 import leasegate.core.LeaseEngine;
 import leasegate.core.access.*;
+import leasegate.frame.*;
 import leasegate.ui.*;
 
 /// cdpgate. Unlock first -- nothing starts until the passphrase is given. Then the pipe server,
@@ -61,31 +62,33 @@ public final class GateApp extends Application {
             return;
         }
         primaryStage.setTitle("cdpgate");
-        PassphraseUnlockDialog.unlockOrSetup(passphraseGate, "cdpgate");
+        var brand = new Brand("cdpgate", "#E5383B", new GateIcons(GateApp.class, "cdpgate"));
+        PassphraseUnlockDialog.unlockOrSetup(passphraseGate, brand);
 
         var browser = new BrowserSupervisor(settings);
         var rules = new CdpRules(browser.profiles());
-        var brand = new Brand("cdpgate", "#2e6da8", GateIcon.image(GateApp.class, "brand.png", "#2e6da8"));
         var engine = new LeaseEngine<CdpScope>(rules, new BlanketModeApproval<>(new FxApproval<>(passphraseGate, rules, brand), passphraseGate),
             new KeyedAppStore<>(keyedStorePath, rules));
         engine.trustApproval(new FxTrust<>(passphraseGate, rules, brand));
         engine.onExpiring(e -> Platform.runLater(() -> ExpiryWarningWindow.show(engine, passphraseGate, brand, e)));
+        engine.startSweep();
         var server = new GateServer(browser, settings.pipe(), engine);
         var status = new TrayStatus(browser, engine);
         var tray = new TrayShell<>(primaryStage, engine, passphraseGate, brand, status::line);
-        var startItem = TrayShell.item("Start Vivaldi under cdpgate", () -> startBrowser(browser));
+        var startItem = TrayShell.item("Start Vivaldi under cdpgate", () -> startBrowser(browser, brand));
         tray.addItem(startItem)
             .onRefresh(() -> { var stopped = browser.state() == BrowserSupervisor.State.STOPPED; if (startItem.isDisable() == stopped) startItem.setDisable(!stopped); })
+            .describe("guards the browser: its DevTools link", "https://github.com/cdpai/gate")
             .quit("Quit cdpgate (Vivaldi closes too)", browser::quitBrowser)
             .install();
         browser.onStatus(s -> System.err.println("cdpgate: " + s));
         browser.onStopped(tray::notify);
         Thread.ofPlatform().name("cdpgate-server").start(server::run);
-        startBrowser(browser);
+        startBrowser(browser, brand);
     }
 
-    static void startBrowser(BrowserSupervisor browser) {
-        Thread.ofPlatform().name("cdpgate-start").start(() -> browser.start(new ExistingBrowserDialog()));
+    static void startBrowser(BrowserSupervisor browser, Brand brand) {
+        Thread.ofPlatform().name("cdpgate-start").start(() -> browser.start(new ExistingBrowserDialog(brand)));
     }
 
     static boolean alreadyRunning(String pipe) {

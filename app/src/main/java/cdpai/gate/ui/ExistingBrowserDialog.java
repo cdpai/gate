@@ -5,14 +5,14 @@ import java.util.concurrent.CompletableFuture;
 import javafx.animation.*;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
-import javafx.scene.Scene;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import javafx.stage.Stage;
 
 import cdpai.gate.browser.BrowserSupervisor.ExistingBrowserPrompt;
 import cdpai.gate.browser.ExistingBrowser;
+import leasegate.frame.Brand;
+import leasegate.frame.GateFrame;
 import leasegate.ui.ApprovalParts;
 
 /// Shown when the browser is already running without cdpgate. cdpgate does not close it: quitting
@@ -21,6 +21,10 @@ import leasegate.ui.ApprovalParts;
 /// closing the windows from outside stays available as an explicit, warned choice. No text input.
 public final class ExistingBrowserDialog implements ExistingBrowserPrompt {
 
+    final Brand brand;
+
+    public ExistingBrowserDialog(Brand brand) { this.brand = brand; }
+
     @Override public Choice ask(ExistingBrowser b) {
         var result = new CompletableFuture<Choice>();
         Platform.runLater(() -> build(b, result));
@@ -28,7 +32,8 @@ public final class ExistingBrowserDialog implements ExistingBrowserPrompt {
     }
 
     void build(ExistingBrowser b, CompletableFuture<Choice> result) {
-        var stage = new Stage();
+        var frame = new GateFrame(brand, "waiting for Vivaldi to exit");
+        var stage = frame.stage;
         var watch = new Timeline(new KeyFrame(javafx.util.Duration.millis(500), x -> {
             if (!b.alive()) { result.complete(Choice.EXITED); stage.close(); }
         }));
@@ -51,14 +56,11 @@ public final class ExistingBrowserDialog implements ExistingBrowserPrompt {
                 ApprovalParts.button("Esc  Leave Vivaldi running, don't start cdpgate's", "#777", stage::close)));
         root.setPadding(new Insets(14));
         root.setPrefWidth(540);
-        var scene = new Scene(root);
+        var scene = frame.scene(root);
         scene.setOnKeyPressed(k -> {
             if (k.getCode() == KeyCode.F2) closeAll.run();
             else if (k.getCode() == KeyCode.ESCAPE) stage.close();
         });
-        stage.setTitle("cdpgate: waiting for Vivaldi to exit");
-        stage.setScene(scene);
-        stage.setAlwaysOnTop(true);
         stage.show();
     }
 }
