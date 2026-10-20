@@ -94,6 +94,9 @@ public final class BrowserSupervisor {
         }
         loader.holdIdentification(false);
         state = State.RUNNING;
+        Thread.ofVirtual().name("cdpgate-profile-check").start(() -> {
+            while (vivaldi == mine && state == State.RUNNING) { ProfileLoader.sleep(5000); if (vivaldi == mine && loader == l) l.reconcile(); }
+        });
         status.accept(browserName() + " running under cdpgate, " + profiles.loadedCount() + " profile(s) open");
         return true;
     }
