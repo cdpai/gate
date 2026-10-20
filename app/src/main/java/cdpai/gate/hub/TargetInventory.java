@@ -10,7 +10,7 @@ import cdpai.gate.access.ScopePolicy;
 import cdpai.gate.access.ScopePolicy.TargetMeta;
 
 /// cdpgate's own live view of every target -- url, type, browserContextId -- kept from discovery
-/// events regardless of what any consumer asked to see. Scope enforcement checks against it
+/// events regardless of what any consumer asked to see. CdpScope enforcement checks against it
 /// (Target.attachToTarget carries only a targetId), and profile binding watches it for contexts
 /// appearing and disappearing: a profile being opened shows up as its first target in a context
 /// never seen before, and a profile closing as the last target of its context going away.

@@ -2,7 +2,7 @@ package cdpai.gate.win;
 
 import java.lang.foreign.MemorySegment;
 
-import cdpai.gate.client.win.PipeIo;
+import leasegate.transport.win.PipeIo;
 
 import static cdpai.gate.win.ProcessLaunchApi.*;
 
@@ -38,7 +38,7 @@ public final class VivaldiProcess implements cdpai.gate.browser.LaunchedBrowser 
 
     @Override public long pid() { return pid; }
 
-    @Override public cdpai.gate.client.FrameIo cdp() { return cdp; }
+    @Override public leasegate.transport.FrameIo cdp() { return cdp; }
 
     @Override public void close() {
         cdp.close();

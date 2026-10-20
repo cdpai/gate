@@ -3,8 +3,9 @@ package cdpai.gate.client;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import cdpai.gate.client.posix.SocketClient;
-import cdpai.gate.client.win.PipeClient;
+import leasegate.transport.FrameIo;
+import leasegate.transport.LeaseDeniedException;
+import leasegate.transport.Links;
 
 /// A consumer's connection to cdpgate. `connect` performs the gate handshake -- it blocks while a
 /// human looks at the approval window -- and returns only once the connection is approved; after
@@ -115,6 +116,11 @@ public final class GateClient implements AutoCloseable {
 
     /// The named pipe on Windows, the Unix domain socket elsewhere -- see GatePlatform.
     static FrameIo open(String pipeName) {
-        return GatePlatform.WINDOWS ? PipeClient.open(pipeName) : SocketClient.open(pipeName);
+        try { return Links.open("cdpgate", GatePlatform.runDir(), pipeName); }
+        catch (GateDeniedException e) { throw e; }
+        catch (LeaseDeniedException e) {
+            throw new GateDeniedException("cdpgate is not running (" + GatePlatform.describe(pipeName) + ")",
+                "start cdpgate; it lives in the tray and owns the browser");
+        }
     }
 }

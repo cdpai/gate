@@ -28,7 +28,7 @@ public class RestoreTrial {
         var planted = Map.of("Default", "https://example.com/?restore-default", "Profile 2", "https://example.org/?restore-p2");
         var keyed = java.nio.file.Files.createTempFile("k", ".json");
         java.nio.file.Files.writeString(keyed, "[]");
-        var server = new cdpai.gate.GateServer(s1, "cdpai-gate-restoretrial", new ScriptedApproval(), new cdpai.gate.access.KeyedAppStore(keyed));
+        var server = new cdpai.gate.GateServer(s1, "cdpai-gate-restoretrial", new ScriptedApproval(), keyed);
         Thread.ofPlatform().daemon().start(server::run);
         Thread.sleep(500);
         for (var e : planted.entrySet()) {

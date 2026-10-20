@@ -1,7 +1,7 @@
 package cdpai.gate.hub;
 
-import cdpai.gate.client.FrameIo;
-import cdpai.gate.win.PeerIdentity;
+import leasegate.transport.FrameIo;
+import leasegate.core.win.PeerIdentity;
 
 /// One approved consumer's live connection: who the kernel says they are, and the pipe to talk
 /// to them over. Reference identity is what matters for the hub's session/consumer bookkeeping,

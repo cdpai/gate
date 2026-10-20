@@ -9,14 +9,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import cdpai.gate.access.Scope;
+import cdpai.gate.access.CdpScope;
 import cdpai.gate.access.ScopePolicy;
-import cdpai.gate.client.FrameIo;
+import leasegate.transport.FrameIo;
 
 /// One browser link fanned out to every approved consumer. Consumers pick colliding "id"s, so
 /// each request is renumbered upstream and the reply mapped back. A session belongs to the
 /// consumer whose attach produced it, and only that consumer may send on it or hear from it.
-/// Scope is checked before anything goes upstream and applied to every listing and discovery
+/// CdpScope is checked before anything goes upstream and applied to every listing and discovery
 /// event coming back, so an out-of-scope target cannot be reached or even seen.
 public final class CdpHub {
 
@@ -33,7 +33,7 @@ public final class CdpHub {
     final ConcurrentHashMap<Long, Pending> pending = new ConcurrentHashMap<>();
     final ConcurrentHashMap<String, ConsumerLink> sessionOwners = new ConcurrentHashMap<>();
     final Set<ConsumerLink> consumers = ConcurrentHashMap.newKeySet();
-    final ConcurrentHashMap<ConsumerLink, Scope> scopes = new ConcurrentHashMap<>();
+    final ConcurrentHashMap<ConsumerLink, CdpScope> scopes = new ConcurrentHashMap<>();
     final AtomicLong nextUpstreamId = new AtomicLong();
     final ConcurrentHashMap<String, ConsumerLink> pendingAttach = new ConcurrentHashMap<>();
     volatile ConsumerLink autoAttachOwner;
@@ -61,7 +61,7 @@ public final class CdpHub {
         return f;
     }
 
-    public void addConsumer(ConsumerLink c, Scope scope) { consumers.add(c); scopes.put(c, scope); }
+    public void addConsumer(ConsumerLink c, CdpScope scope) { consumers.add(c); scopes.put(c, scope); }
 
     public void removeConsumer(ConsumerLink c) {
         consumers.remove(c);
@@ -79,7 +79,7 @@ public final class CdpHub {
         var denial = refuse(from, obj);
         if (denial != null) { send(from, errorReply(obj, denial)); return; }
         if (obj.path("method").asText("").equals("Target.setAutoAttach") && !obj.has("sessionId")) autoAttachOwner = from;
-        var opening = placement == null ? null : placement.place(obj, scopes.getOrDefault(from, Scope.UNSCOPED));
+        var opening = placement == null ? null : placement.place(obj, scopes.getOrDefault(from, CdpScope.UNSCOPED));
         if (opening != null) { answerWhenOpened(from, obj, opening); return; }
         if (obj.path("method").asText("").equals("Target.attachToTarget")) pendingAttach.put(obj.path("params").path("targetId").asText(""), from);
         if (obj.has("id")) {
@@ -104,7 +104,7 @@ public final class CdpHub {
         if (ALWAYS_DENIED.contains(method)) return "cdpgate: " + method + " is reserved to cdpgate, which owns the browser";
         if (obj.has("sessionId") && sessionOwners.get(obj.path("sessionId").asText()) != from)
             return "cdpgate: that session does not belong to this connection";
-        var scope = scopes.getOrDefault(from, Scope.UNSCOPED);
+        var scope = scopes.getOrDefault(from, CdpScope.UNSCOPED);
         if (!scope.unscoped() && method.equals("Target.setAutoAttach") && !obj.has("sessionId"))
             return "cdpgate: browser-wide auto-attach is not available to a scoped connection; attach to targets one at a time";
         if (ScopePolicy.isCookieCall(method) && scope.profilesScoped()) {
@@ -152,7 +152,7 @@ public final class CdpHub {
         obj.put("id", p.originalId());
         var sid = obj.path("result").path("sessionId");
         if (!sid.isMissingNode()) { sessionOwners.put(sid.asText(), p.consumer()); pendingAttach.values().remove(p.consumer()); }
-        var scope = scopes.getOrDefault(p.consumer(), Scope.UNSCOPED);
+        var scope = scopes.getOrDefault(p.consumer(), CdpScope.UNSCOPED);
         var infos = obj.path("result").path("targetInfos");
         if (!scope.unscoped() && !infos.isMissingNode())
             ((ObjectNode) obj.path("result")).set("targetInfos", ScopePolicy.filterTargetInfos(infos, scope, mapper, dirOf));
@@ -186,7 +186,7 @@ public final class CdpHub {
             return;
         }
         for (var c : consumers) {
-            var scope = scopes.getOrDefault(c, Scope.UNSCOPED);
+            var scope = scopes.getOrDefault(c, CdpScope.UNSCOPED);
             if (!info.isMissingNode() && !ScopePolicy.allowsTargetInfo(info, scope, dirOf)) continue;
             send(c, obj);
         }

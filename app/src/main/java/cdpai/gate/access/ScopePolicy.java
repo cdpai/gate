@@ -11,7 +11,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-/// Enforcement of a Scope over CDP traffic, as pure functions so it is testable without a browser.
+/// Enforcement of a CdpScope over CDP traffic, as pure functions so it is testable without a browser.
 /// Domains match a target url's host exactly or as a subdomain, never as a pattern. Profiles are
 /// held as on-disk folder names; `dirOf` turns a target's per-launch browserContextId into the
 /// folder, and a context it cannot name is outside every profile scope -- unknown fails closed.
@@ -22,7 +22,7 @@ public final class ScopePolicy {
     /// Checked before a command goes upstream: where it may navigate (createTarget, navigate),
     /// what it may attach to (by the target's known url and profile), and it may not make fresh
     /// browser contexts to escape a profile scope. Everything else passes through.
-    public static Optional<String> deny(String method, JsonNode params, Scope scope, Map<String, TargetMeta> known,
+    public static Optional<String> deny(String method, JsonNode params, CdpScope scope, Map<String, TargetMeta> known,
                                         Function<String, String> dirOf) {
         if (scope.unscoped()) return Optional.empty();
         return switch (method) {
@@ -61,7 +61,7 @@ public final class ScopePolicy {
 
     /// Keeps a cookie call inside the approved profiles: a call that reaches the last-used profile's
     /// jar passes only while that profile is approved.
-    public static Optional<String> cookieJar(String method, ObjectNode params, boolean onSession, Scope scope,
+    public static Optional<String> cookieJar(String method, ObjectNode params, boolean onSession, CdpScope scope,
                                              String defaultContext, Function<String, String> dirOf) {
         if (!isCookieCall(method) || (onSession && NETWORK_COOKIES.contains(method))) return Optional.empty();
         if (!scope.profilesScoped()) return Optional.empty();
@@ -76,30 +76,30 @@ public final class ScopePolicy {
 
     static String dirOfNullable(Function<String, String> dirOf, String ctx) { return ctx == null ? null : dirOf.apply(ctx); }
 
-    public static boolean allowsUrl(Scope scope, String url) {
+    public static boolean allowsUrl(CdpScope scope, String url) {
         if (!scope.domainsScoped()) return true;
         if (url.isEmpty() || url.startsWith("about:")) return true;
         var host = host(url);
         return host != null && scope.domains().stream().anyMatch(d -> matchesHost(host, d));
     }
 
-    public static boolean allowsProfile(Scope scope, String dir) {
+    public static boolean allowsProfile(CdpScope scope, String dir) {
         return !scope.profilesScoped() || (dir != null && scope.profiles().contains(dir));
     }
 
-    public static boolean allowsTarget(Scope scope, TargetMeta meta, Function<String, String> dirOf) {
+    public static boolean allowsTarget(CdpScope scope, TargetMeta meta, Function<String, String> dirOf) {
         return allowsUrl(scope, meta.url()) && allowsProfile(scope, dirOf.apply(meta.browserContextId()));
     }
 
     /// An out-of-scope target is invisible to a scoped consumer, not merely unreachable.
-    public static JsonNode filterTargetInfos(JsonNode infos, Scope scope, ObjectMapper mapper, Function<String, String> dirOf) {
+    public static JsonNode filterTargetInfos(JsonNode infos, CdpScope scope, ObjectMapper mapper, Function<String, String> dirOf) {
         if (scope.unscoped() || !infos.isArray()) return infos;
         var out = mapper.createArrayNode();
         for (var t : infos) if (allowsTarget(scope, metaOf(t), dirOf)) out.add(t);
         return out;
     }
 
-    public static boolean allowsTargetInfo(JsonNode info, Scope scope, Function<String, String> dirOf) {
+    public static boolean allowsTargetInfo(JsonNode info, CdpScope scope, Function<String, String> dirOf) {
         return scope.unscoped() || allowsTarget(scope, metaOf(info), dirOf);
     }
 

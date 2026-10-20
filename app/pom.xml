@@ -17,6 +17,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>io.github.leasegate</groupId>
+            <artifactId>leasegate-ui</artifactId>
+            <version>${leasegate.version}</version>
+        </dependency>
+        <dependency>
             <groupId>io.github.cdpai</groupId>
             <artifactId>cdpai-gate-client</artifactId>
             <version>${project.version}</version>

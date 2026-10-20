@@ -11,7 +11,7 @@ import cdpai.gate.client.GateDeniedException;
 import cdpai.gate.client.ScopeRequest;
 
 /// Long trust for an agent session: the human types the passphrase once and the session -- and every
-/// program it starts, cdpg, netrec, a java script -- passes for hours. Scope is optional; the window's
+/// program it starts, cdpg, netrec, a java script -- passes for hours. CdpScope is optional; the window's
 /// colour (green, amber, red) shows the human how much a wide request hands over.
 @Command(name = "trust", description = {"Ask for a long approval (4 hours to 2 days) for this agent session and everything it starts.",
     "The human approves with the passphrase. With no --pid, the nearest agent process above this one (such as claude.exe) is trusted.",

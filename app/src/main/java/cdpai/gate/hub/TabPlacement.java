@@ -7,7 +7,7 @@ import java.util.function.Supplier;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import cdpai.gate.access.Scope;
+import cdpai.gate.access.CdpScope;
 
 /// Where a new tab goes. Measured on Vivaldi under the pipe: Target.createTarget puts a tab in the
 /// browser's current default context -- the profile used last -- and accepts an explicit
@@ -33,7 +33,7 @@ public final class TabPlacement {
     /// Adjusts a createTarget in place; returns a future when cdpgate opens the tab itself and the
     /// message must not go upstream. Runs on the requesting consumer's own thread, so asking the
     /// browser for its default context here blocks nobody else.
-    CompletableFuture<String> place(ObjectNode msg, Scope scope) {
+    CompletableFuture<String> place(ObjectNode msg, CdpScope scope) {
         if (!msg.path("method").asText("").equals("Target.createTarget") || !(msg.path("params") instanceof ObjectNode p)) return null;
         var ctx = p.path("browserContextId").asText(null);
         if (ctx == null && scope.profilesScoped() && !scope.profiles().isEmpty()) ctx = contextOf.apply(scope.profiles().getFirst());

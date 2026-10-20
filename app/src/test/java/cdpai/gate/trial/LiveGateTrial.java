@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import cdpai.gate.GateServer;
-import cdpai.gate.access.KeyedAppStore;
 import cdpai.gate.browser.*;
 import cdpai.gate.client.*;
 
@@ -33,7 +32,7 @@ public class LiveGateTrial {
         browser.onStatus(s -> System.out.println("  [status] " + s));
         var keyedFile = Files.createTempFile("keyed", ".json");
         Files.writeString(keyedFile, "[]");
-        var server = new GateServer(browser, PIPE, approval, new KeyedAppStore(keyedFile));
+        var server = new GateServer(browser, PIPE, approval, keyedFile);
         Thread.ofPlatform().daemon().start(server::run);
 
         System.out.println("== an unprotected browser is already running on the profile folder");

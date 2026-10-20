@@ -8,7 +8,7 @@ import cdpai.gate.client.GateClient;
 import cdpai.gate.client.GateKey;
 import cdpai.gate.client.ScopeRequest;
 
-/// How a cdpg command asks cdpgate for access. Scope what you need: `--profiles` and `--domains`
+/// How a cdpg command asks cdpgate for access. CdpScope what you need: `--profiles` and `--domains`
 /// narrow the approval and let it run longer; with neither, the approval is short and the human
 /// must also type the passphrase. List the profiles first with `cdpg profiles`, which needs no
 /// approval.

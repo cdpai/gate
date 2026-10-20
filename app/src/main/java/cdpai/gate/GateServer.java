@@ -1,105 +1,40 @@
 package cdpai.gate;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
+import java.nio.file.Path;
 
-import cdpai.gate.access.*;
+import cdpai.gate.access.CdpRules;
+import cdpai.gate.access.CdpScope;
+import leasegate.core.access.Approval;
+import leasegate.core.access.KeyedAppStore;
 import cdpai.gate.browser.BrowserSupervisor;
-import cdpai.gate.hub.ConsumerLink;
 import cdpai.gate.client.GatePlatform;
-import cdpai.gate.posix.UnixSocketServer;
-import cdpai.gate.win.NamedPipeServer;
+import leasegate.core.ConsumerServer;
+import leasegate.core.LeaseEngine;
+import leasegate.core.LeaseServer;
 
-/// The pipe server: accepts connections, hands each to a ConnectionHandler, and keeps the list of
-/// live connections honest. Expiry closes open connections rather than merely refusing new ones,
-/// so a row in the access window never reads as ended while its consumer is still working; five
-/// minutes before an attested grant with a live connection runs out, the UI is told so the human
-/// can extend it (within the grant's own cap) or let it lapse.
+/// cdpgate's pipe server: accepts connections and hands each to a ConnectionHandler. Who may get
+/// through, for how long, and the sweep that cuts expired links all live in leasegate's engine;
+/// what is left here is the browser the approved connections are joined to.
 public final class GateServer {
-
-    public record LiveLink(Approval.Kind kind, String approvalId, String label) {}
-
-    public record Expiring(String grantId, String label, Instant expiresAt) {}
-
-    static final long SWEEP_MS = 5_000;
-    static final Duration WARN_BEFORE = Duration.ofMinutes(5);
 
     final ConsumerServer pipeServer;
     final BrowserSupervisor browser;
-    final Approval approval;
-    final GrantStore grants = new GrantStore();
-    final KeyedAppStore keyed;
-    final ConcurrentHashMap<ConsumerLink, LiveLink> links = new ConcurrentHashMap<>();
-    final Set<String> warned = ConcurrentHashMap.newKeySet();
-    volatile Consumer<Expiring> onExpiring = e -> {};
-    volatile TrustApproval trustApproval = r -> Optional.empty();
+    public final LeaseEngine<CdpScope> engine;
 
-    public GateServer(BrowserSupervisor browser, String pipeName, Approval approval, KeyedAppStore keyed) {
+    public GateServer(BrowserSupervisor browser, String pipeName, LeaseEngine<CdpScope> engine) {
         this.browser = browser;
-        this.pipeServer = GatePlatform.WINDOWS ? new NamedPipeServer(pipeName) : new UnixSocketServer(GatePlatform.socketPath(pipeName));
-        this.approval = approval;
-        this.keyed = keyed;
+        this.pipeServer = LeaseServer.open(GatePlatform.runDir(), pipeName);
+        this.engine = engine;
     }
 
-    public void onExpiring(Consumer<Expiring> l) { onExpiring = l; }
-
-    public void trustApproval(TrustApproval t) { trustApproval = t; }
+    /// A server with its own engine, for trials: `approval` stands in for the human.
+    public GateServer(BrowserSupervisor browser, String pipeName, Approval<CdpScope> approval, Path keyedStore) {
+        this(browser, pipeName, new LeaseEngine<>(new CdpRules(browser.profiles()), approval,
+            new KeyedAppStore<>(keyedStore, new CdpRules(browser.profiles()))));
+    }
 
     public void run() {
-        Thread.ofPlatform().name("cdpgate-sweep").daemon().start(this::sweep);
-        while (true) {
-            ConsumerServer.Accepted accepted;
-            try { accepted = pipeServer.accept(); }
-            catch (Exception e) { System.err.println("accept failed: " + e.getMessage()); continue; }
-            var a = accepted;
-            Thread.ofPlatform().name("cdpgate-consumer-" + a.peer().pid()).start(() -> new ConnectionHandler(this, a).run());
-        }
-    }
-
-    void register(ConsumerLink link, Approval.Kind kind, String approvalId, String label) { links.put(link, new LiveLink(kind, approvalId, label)); }
-
-    void unregister(ConsumerLink link) { links.remove(link); }
-
-    public List<Grant> activeGrants() { return grants.active(); }
-
-    public List<KeyedApp> keyedApps() { return keyed.all(); }
-
-    public long liveConnections(String approvalId) { return links.values().stream().filter(l -> l.approvalId().equals(approvalId)).count(); }
-
-    public void revokeGrant(String id) { grants.revoke(id); cut(id); }
-
-    public void revokeKeyed(String id) { keyed.revoke(id); cut(id); }
-
-    public void clearKeyedFlag(String id) { keyed.clearFlag(id); }
-
-    /// Empty when the grant had already ended.
-    public Optional<Grant> extendGrant(String id) { var g = grants.extend(id); warned.remove(id); return g; }
-
-    public void extendBlanketGrants(Instant newEnd) { grants.extendBlanketGrants(newEnd); }
-
-    public void revokeAllNow() {
-        grants.clear();
-        links.forEach((link, l) -> { if (l.kind() == Approval.Kind.ATTESTED) link.io.cancelPendingIo(); });
-    }
-
-    void cut(String approvalId) { links.forEach((link, l) -> { if (l.approvalId().equals(approvalId)) link.io.cancelPendingIo(); }); }
-
-    void sweep() {
-        while (true) {
-            try { Thread.sleep(SWEEP_MS); } catch (InterruptedException e) { return; }
-            var now = Instant.now();
-            links.forEach((link, l) -> {
-                if (l.kind() == Approval.Kind.KEYED) { if (!keyed.isValid(l.approvalId())) link.io.cancelPendingIo(); return; }
-                var g = grants.byId(l.approvalId());
-                if (g.isEmpty()) { link.io.cancelPendingIo(); return; }
-                if (Duration.between(now, g.get().expiresAt()).compareTo(WARN_BEFORE) <= 0 && warned.add(g.get().id()))
-                    onExpiring.accept(new Expiring(g.get().id(), l.label(), g.get().expiresAt()));
-            });
-        }
+        engine.startSweep();
+        LeaseServer.serve(pipeServer, "cdpgate", a -> new ConnectionHandler(this, a).run());
     }
 }

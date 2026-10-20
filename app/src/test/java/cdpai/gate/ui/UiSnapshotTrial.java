@@ -10,11 +10,12 @@ import javafx.application.Platform;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 
-import cdpai.gate.GateServer;
-import cdpai.gate.TestGrants;
 import cdpai.gate.access.*;
 import cdpai.gate.browser.*;
-import cdpai.gate.win.PeerIdentity;
+import leasegate.core.LeaseEngine;
+import leasegate.core.access.*;
+import leasegate.core.win.PeerIdentity;
+import leasegate.ui.*;
 
 /// Renders every cdpgate window in-process with realistic data and writes each as a PNG, so the
 /// layout can be looked at without driving the real app from outside. Nothing is approved and no
@@ -32,32 +33,33 @@ public class UiSnapshotTrial {
         var chain = tree.decorate(raw);
         var peer = PeerIdentity.resolve(me);
         var gate = new PassphraseGate(Files.createTempDirectory("ui").resolve("p.json"));
-        var entries = List.of(new ProfileMap.Entry("Default", "Work", "CTX1", false), new ProfileMap.Entry("Profile 3", "Personal", null, false),
-            new ProfileMap.Entry("Profile 4", "Research", "CTX2", true));
+        var profiles = new ProfileMap();
+        profiles.setProfiles(List.of(new BrowserProfile("Default", "Work"), new BrowserProfile("Profile 3", "Personal"), new BrowserProfile("Profile 4", "Research")));
+        profiles.bind("CTX1", "Default", false);
+        profiles.bind("CTX2", "Profile 4", true);
+        var rules = new CdpRules(profiles);
 
-        var scoped = new Scope(List.of("youtube.com", "studio.youtube.com"), List.of("Default", "Profile 3"), 120);
-        shoot(out, "approval-attested-scoped", () -> new ApprovalWindow(new Approval.Request(Approval.Kind.ATTESTED, peer, chain, tree,
-            scoped, "cdpg", null, entries, null), gate, d -> {}).show());
-        shoot(out, "approval-attested-unscoped", () -> new ApprovalWindow(new Approval.Request(Approval.Kind.ATTESTED, peer, chain, tree,
-            Scope.UNSCOPED, "cdpg", null, entries, null), gate, d -> {}).show());
-        shoot(out, "approval-keyed", () -> new ApprovalWindow(new Approval.Request(Approval.Kind.KEYED, peer, chain, tree,
-            new Scope(List.of("youtube.com"), List.of("Default"), 30 * 1440), "yt_live_chats", "3f9a1c0d22b7e418", entries,
-            "first request from this key"), gate, d -> {}).show());
+        var scoped = new CdpScope(List.of("youtube.com", "studio.youtube.com"), List.of("Default", "Profile 3"), 120);
+        shoot(out, "approval-attested-scoped", () -> WindowPreview.approval(new Approval.Request<>(Approval.Kind.ATTESTED, peer, chain, tree,
+            scoped, "cdpg", null, null), gate, rules));
+        shoot(out, "approval-attested-unscoped", () -> WindowPreview.approval(new Approval.Request<>(Approval.Kind.ATTESTED, peer, chain, tree,
+            CdpScope.UNSCOPED, "cdpg", null, null), gate, rules));
+        shoot(out, "approval-keyed", () -> WindowPreview.approval(new Approval.Request<>(Approval.Kind.KEYED, peer, chain, tree,
+            new CdpScope(List.of("youtube.com"), List.of("Default"), 30 * 1440), "yt_live_chats", "3f9a1c0d22b7e418",
+            "first request from this key"), gate, rules));
 
         var target = chain.get(Math.min(3, chain.size() - 1));
-        shoot(out, "trust-green", () -> new TrustWindow(new TrustApproval.Request(peer, target, new Scope(List.of("facebook.com"), List.of("Default"), 480),
-            "cdpg trust", entries), gate, d -> {}).show());
-        shoot(out, "trust-amber", () -> new TrustWindow(new TrustApproval.Request(peer, target, new Scope(null, List.of("Default"), 1440),
-            "cdpg trust", entries), gate, d -> {}).show());
-        shoot(out, "trust-red", () -> new TrustWindow(new TrustApproval.Request(peer, target, new Scope(null, null, 2880),
-            "cdpg trust", entries), gate, d -> {}).show());
+        shoot(out, "trust-green", () -> WindowPreview.trust(new TrustApproval.Request<>(peer, target, new CdpScope(List.of("facebook.com"), List.of("Default"), 480),
+            "cdpg trust"), gate, rules));
+        shoot(out, "trust-amber", () -> WindowPreview.trust(new TrustApproval.Request<>(peer, target, new CdpScope(null, List.of("Default"), 1440),
+            "cdpg trust"), gate, rules));
+        shoot(out, "trust-red", () -> WindowPreview.trust(new TrustApproval.Request<>(peer, target, new CdpScope(null, null, 2880),
+            "cdpg trust"), gate, rules));
 
-        var settings = new GateSettings("C:\\Program Files\\Vivaldi\\Application\\vivaldi.exe", null, "none");
-        var server = new GateServer(new BrowserSupervisor(settings), "cdpai-gate-ui-trial-unused", r -> java.util.Optional.empty(),
-            new KeyedAppStore(Files.createTempDirectory("ui").resolve("k.json")));
-        TestGrants.add(server, peer.imagePath(), chain.get(Math.min(3, chain.size() - 1)), 120, scoped);
-        shoot(out, "access-list", () -> new AccessListWindow(server, new ProfileMap(), gate).show());
-        shoot(out, "expiry-warning", () -> ExpiryWarningWindow.show(server, gate, new GateServer.Expiring("g1", "netrec", Instant.now().plusSeconds(290))));
+        var engine = new LeaseEngine<CdpScope>(rules, r -> java.util.Optional.empty(), new KeyedAppStore<>(Files.createTempDirectory("ui").resolve("k.json"), rules));
+        engine.grant(peer.imagePath(), chain.get(Math.min(3, chain.size() - 1)), 120, scoped);
+        shoot(out, "access-list", () -> new AccessListWindow<>(engine, gate).show());
+        shoot(out, "expiry-warning", () -> ExpiryWarningWindow.show(engine, gate, new LeaseEngine.Expiring("g1", "netrec", Instant.now().plusSeconds(290))));
         shoot(out, "existing-browser", () -> new ExistingBrowserDialog().build(new ExistingBrowser(ProcessHandle.current().pid(), "vivaldi.exe", 1), new java.util.concurrent.CompletableFuture<>()));
         System.exit(0);
     }

@@ -13,6 +13,7 @@ import javafx.stage.Stage;
 
 import cdpai.gate.browser.BrowserSupervisor.ExistingBrowserPrompt;
 import cdpai.gate.browser.ExistingBrowser;
+import leasegate.ui.ApprovalParts;
 
 /// Shown when the browser is already running without cdpgate. cdpgate does not close it: quitting
 /// from the browser's own menu is the one path measured to save every window, and closing it from
@@ -46,8 +47,8 @@ public final class ExistingBrowserDialog implements ExistingBrowserPrompt {
                     + " anything typed into a page and not yet submitted is lost.", "#8a4b00")
                 : ApprovalParts.small("Vivaldi has " + b.windowCount() + " window(s) open. Letting cdpgate close them from outside"
                 + " is less safe: with several windows only the last one is restored, and Vivaldi may keep running with no window.", "#8a4b00"),
-            new HBox(8, ApprovalWindow.button(mac ? "F2  Quit Vivaldi for me" : "F2  Close the windows for me", "#8a4b00", closeAll),
-                ApprovalWindow.button("Esc  Leave Vivaldi running, don't start cdpgate's", "#777", stage::close)));
+            new HBox(8, ApprovalParts.button(mac ? "F2  Quit Vivaldi for me" : "F2  Close the windows for me", "#8a4b00", closeAll),
+                ApprovalParts.button("Esc  Leave Vivaldi running, don't start cdpgate's", "#777", stage::close)));
         root.setPadding(new Insets(14));
         root.setPrefWidth(540);
         var scene = new Scene(root);

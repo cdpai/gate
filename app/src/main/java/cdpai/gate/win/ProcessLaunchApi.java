@@ -3,7 +3,7 @@ package cdpai.gate.win;
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
 
-import static cdpai.gate.client.win.Win32.downcall;
+import static leasegate.transport.win.Win32.downcall;
 
 /// Kernel32 calls needed to launch Vivaldi and own its fd3/fd4 pipe pair -- the same mechanism
 /// PipeSpike.java proved works (CreateProcessW + an MSVCRT inherited-fd table via

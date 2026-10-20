@@ -2,7 +2,8 @@ package cdpai.gate.ui;
 
 import java.util.List;
 
-import cdpai.gate.GateServer;
+import cdpai.gate.access.CdpScope;
+import leasegate.core.LeaseEngine;
 import cdpai.gate.browser.BrowserSupervisor;
 import cdpai.gate.browser.ExistingBrowser;
 
@@ -13,10 +14,10 @@ import cdpai.gate.browser.ExistingBrowser;
 final class TrayStatus {
 
     final BrowserSupervisor browser;
-    final GateServer server;
+    final LeaseEngine<CdpScope> server;
     volatile List<ExistingBrowser> outside = List.of();
 
-    TrayStatus(BrowserSupervisor browser, GateServer server) {
+    TrayStatus(BrowserSupervisor browser, LeaseEngine<CdpScope> server) {
         this.browser = browser;
         this.server = server;
         Thread.ofPlatform().name("cdpgate-outside-probe").daemon().start(this::probe);

@@ -7,10 +7,14 @@ import javafx.application.Platform;
 import javafx.stage.Stage;
 
 import cdpai.gate.GateServer;
-import cdpai.gate.access.*;
+import cdpai.gate.access.CdpRules;
+import cdpai.gate.access.CdpScope;
 import cdpai.gate.browser.BrowserSupervisor;
 import cdpai.gate.browser.GateSettings;
 import cdpai.gate.client.GateClient;
+import leasegate.core.LeaseEngine;
+import leasegate.core.access.*;
+import leasegate.ui.*;
 
 /// cdpgate. Unlock first -- nothing starts until the passphrase is given. Then the pipe server,
 /// the tray, and the browser: if the browser is already running on these profiles without
@@ -21,9 +25,11 @@ import cdpai.gate.client.GateClient;
 /// real passphrase, `--keyed-store <file>` keeps trial keys out of the real list.
 public final class GateApp extends Application {
 
+    static final Path HOME = Path.of(System.getProperty("user.home"), "cdpai", "gate");
+
     GateSettings settings;
     PassphraseGate passphraseGate;
-    KeyedAppStore keyedStore;
+    Path keyedStorePath = HOME.resolve("keyed-apps.json");
 
     public static void main(String[] args) {
         // macOS: a menu-bar app, not a Dock icon. Must be set before AWT (the tray) initialises.
@@ -35,15 +41,14 @@ public final class GateApp extends Application {
         Platform.setImplicitExit(false);
         var a = getParameters().getRaw();
         settings = GateSettings.load();
-        passphraseGate = new PassphraseGate();
-        keyedStore = new KeyedAppStore();
+        passphraseGate = new PassphraseGate(HOME.resolve("passphrase.json"));
         for (var i = 0; i + 1 < a.size(); i += 2) {
             var v = a.get(i + 1);
             switch (a.get(i)) {
                 case "--user-data-dir" -> settings = settings.withUserDataDir(v);
                 case "--pipe" -> settings = settings.withPipe(v);
                 case "--passphrase-store" -> passphraseGate = new PassphraseGate(Path.of(v));
-                case "--keyed-store" -> keyedStore = new KeyedAppStore(Path.of(v));
+                case "--keyed-store" -> keyedStorePath = Path.of(v);
                 default -> throw new IllegalArgumentException("unknown option " + a.get(i));
             }
         }
@@ -56,18 +61,30 @@ public final class GateApp extends Application {
             return;
         }
         primaryStage.setTitle("cdpgate");
-        PassphraseUnlockDialog.unlockOrSetup(passphraseGate);
+        PassphraseUnlockDialog.unlockOrSetup(passphraseGate, "cdpgate");
 
         var browser = new BrowserSupervisor(settings);
-        var server = new GateServer(browser, settings.pipe(), new BlanketModeApproval(new FxApproval(passphraseGate), passphraseGate), keyedStore);
-        var tray = new TrayShell(primaryStage, browser, server, passphraseGate);
-        tray.install();
+        var rules = new CdpRules(browser.profiles());
+        var engine = new LeaseEngine<CdpScope>(rules, new BlanketModeApproval<>(new FxApproval<>(passphraseGate, rules), passphraseGate),
+            new KeyedAppStore<>(keyedStorePath, rules));
+        engine.trustApproval(new FxTrust<>(passphraseGate, rules));
+        engine.onExpiring(e -> Platform.runLater(() -> ExpiryWarningWindow.show(engine, passphraseGate, e)));
+        var server = new GateServer(browser, settings.pipe(), engine);
+        var status = new TrayStatus(browser, engine);
+        var tray = new TrayShell<>(primaryStage, engine, passphraseGate, GateIcon.image(), status::line);
+        var startItem = TrayShell.item("Start Vivaldi under cdpgate", () -> startBrowser(browser));
+        tray.addItem(startItem)
+            .onRefresh(() -> { var stopped = browser.state() == BrowserSupervisor.State.STOPPED; if (startItem.isDisable() == stopped) startItem.setDisable(!stopped); })
+            .quit("Quit cdpgate (Vivaldi closes too)", browser::quitBrowser)
+            .install();
         browser.onStatus(s -> System.err.println("cdpgate: " + s));
         browser.onStopped(tray::notify);
-        server.trustApproval(new FxTrust(passphraseGate));
-        server.onExpiring(e -> Platform.runLater(() -> ExpiryWarningWindow.show(server, passphraseGate, e)));
         Thread.ofPlatform().name("cdpgate-server").start(server::run);
-        tray.startBrowser();
+        startBrowser(browser);
+    }
+
+    static void startBrowser(BrowserSupervisor browser) {
+        Thread.ofPlatform().name("cdpgate-start").start(() -> browser.start(new ExistingBrowserDialog()));
     }
 
     static boolean alreadyRunning(String pipe) {

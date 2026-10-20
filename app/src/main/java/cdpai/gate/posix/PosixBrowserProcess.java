@@ -4,9 +4,12 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.ValueLayout;
 
 import cdpai.gate.browser.LaunchedBrowser;
-import cdpai.gate.client.FrameIo;
+import leasegate.transport.FrameIo;
 
-import static cdpai.gate.posix.Libc.*;
+import leasegate.core.posix.FdIo;
+import leasegate.core.posix.Libc;
+
+import static leasegate.core.posix.Libc.*;
 
 /// A browser posix_spawn'd by this JVM. The JVM does not reap children it did not start through
 /// ProcessBuilder, so a thread here waits on it: without that the exited browser would stay a

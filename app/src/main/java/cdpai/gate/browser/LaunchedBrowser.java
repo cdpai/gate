@@ -1,6 +1,6 @@
 package cdpai.gate.browser;
 
-import cdpai.gate.client.FrameIo;
+import leasegate.transport.FrameIo;
 
 /// A browser cdpgate started with --remote-debugging-pipe, and the pipe that is its only CDP link.
 /// `win.VivaldiProcess` on Windows, `posix.PosixBrowserProcess` elsewhere.

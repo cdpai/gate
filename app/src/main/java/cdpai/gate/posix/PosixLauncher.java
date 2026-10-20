@@ -7,7 +7,10 @@ import java.util.Map;
 
 import cdpai.gate.browser.BrowserLauncher;
 
-import static cdpai.gate.posix.Libc.*;
+import leasegate.core.posix.FdIo;
+import leasegate.core.posix.Libc;
+
+import static leasegate.core.posix.Libc.*;
 
 /// Starts the browser with --remote-debugging-pipe on macOS: two pipes, dup2'd onto the child's
 /// fd 3 (it reads commands) and fd 4 (it writes replies) -- exactly what Puppeteer's `pipe: true`

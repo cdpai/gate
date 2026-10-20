@@ -6,6 +6,7 @@ import java.util.List;
 
 import cdpai.gate.client.GatePlatform;
 import cdpai.gate.win.User32;
+import leasegate.core.ProcInfo;
 
 /// A browser already running on the same profile folder that cdpgate did not start -- typically
 /// the user's normal Vivaldi, with no debugging pipe. It holds the profile's process singleton, so

@@ -4,10 +4,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-import cdpai.gate.client.posix.SocketClient;
+import leasegate.transport.posix.SocketClient;
 import cdpai.gate.client.GatePlatform;
 import cdpai.gate.posix.PosixLauncher;
-import cdpai.gate.posix.UnixSocketServer;
+import leasegate.core.posix.UnixSocketServer;
 
 /// The two native pieces of the macOS port, without the UI: (1) the socket server names its peer
 /// by the kernel's LOCAL_PEERPID (here the peer is this same process, so the pid must be ours) and
@@ -22,9 +22,9 @@ public final class MacPosixTrial {
 
         System.out.println("== socket");
         var server = new UnixSocketServer(GatePlatform.socketPath("cdpai-gate-trial"));
-        var accepted = new java.util.concurrent.CompletableFuture<cdpai.gate.ConsumerServer.Accepted>();
+        var accepted = new java.util.concurrent.CompletableFuture<leasegate.core.ConsumerServer.Accepted>();
         Thread.ofPlatform().start(() -> accepted.complete(server.accept()));
-        try (var client = SocketClient.open("cdpai-gate-trial")) {
+        try (var client = SocketClient.open("cdpgate", GatePlatform.socketPath("cdpai-gate-trial"))) {
             var a = accepted.get();
             System.out.println("peer pid " + a.peer().pid() + " (mine " + ProcessHandle.current().pid() + ") image " + a.peer().imagePath());
             check(a.peer().pid() == ProcessHandle.current().pid(), "kernel-named peer pid is this process");

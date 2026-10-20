@@ -4,11 +4,11 @@ import java.lang.foreign.*;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-import cdpai.gate.client.win.PipeIo;
+import leasegate.transport.win.PipeIo;
 
-import static cdpai.gate.client.win.Kernel32.CloseHandle;
-import static cdpai.gate.client.win.Kernel32.lastError;
-import static cdpai.gate.client.win.Win32.newCaptureSegment;
+import static leasegate.transport.win.Kernel32.CloseHandle;
+import static leasegate.transport.win.Kernel32.lastError;
+import static leasegate.transport.win.Win32.newCaptureSegment;
 import static cdpai.gate.win.ProcessLaunchApi.*;
 
 /// Launches Vivaldi with --remote-debugging-pipe and owns the resulting fd3/fd4 pair -- the sole
