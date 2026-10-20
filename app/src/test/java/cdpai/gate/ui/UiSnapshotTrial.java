@@ -38,28 +38,29 @@ public class UiSnapshotTrial {
         profiles.bind("CTX1", "Default", false);
         profiles.bind("CTX2", "Profile 4", true);
         var rules = new CdpRules(profiles);
+        var brand = new Brand("cdpgate", "#2e6da8", GateIcon.image(GateApp.class, "brand.png", "#2e6da8"));
 
         var scoped = new CdpScope(List.of("youtube.com", "studio.youtube.com"), List.of("Default", "Profile 3"), 120);
         shoot(out, "approval-attested-scoped", () -> WindowPreview.approval(new Approval.Request<>(Approval.Kind.ATTESTED, peer, chain, tree,
-            scoped, "cdpg", null, null), gate, rules));
+            scoped, "cdpg", null, null), gate, rules, brand));
         shoot(out, "approval-attested-unscoped", () -> WindowPreview.approval(new Approval.Request<>(Approval.Kind.ATTESTED, peer, chain, tree,
-            CdpScope.UNSCOPED, "cdpg", null, null), gate, rules));
+            CdpScope.UNSCOPED, "cdpg", null, null), gate, rules, brand));
         shoot(out, "approval-keyed", () -> WindowPreview.approval(new Approval.Request<>(Approval.Kind.KEYED, peer, chain, tree,
             new CdpScope(List.of("youtube.com"), List.of("Default"), 30 * 1440), "yt_live_chats", "3f9a1c0d22b7e418",
-            "first request from this key"), gate, rules));
+            "first request from this key"), gate, rules, brand));
 
         var target = chain.get(Math.min(3, chain.size() - 1));
         shoot(out, "trust-green", () -> WindowPreview.trust(new TrustApproval.Request<>(peer, target, new CdpScope(List.of("facebook.com"), List.of("Default"), 480),
-            "cdpg trust"), gate, rules));
+            "cdpg trust"), gate, rules, brand));
         shoot(out, "trust-amber", () -> WindowPreview.trust(new TrustApproval.Request<>(peer, target, new CdpScope(null, List.of("Default"), 1440),
-            "cdpg trust"), gate, rules));
+            "cdpg trust"), gate, rules, brand));
         shoot(out, "trust-red", () -> WindowPreview.trust(new TrustApproval.Request<>(peer, target, new CdpScope(null, null, 2880),
-            "cdpg trust"), gate, rules));
+            "cdpg trust"), gate, rules, brand));
 
         var engine = new LeaseEngine<CdpScope>(rules, r -> java.util.Optional.empty(), new KeyedAppStore<>(Files.createTempDirectory("ui").resolve("k.json"), rules));
         engine.grant(peer.imagePath(), chain.get(Math.min(3, chain.size() - 1)), 120, scoped);
-        shoot(out, "access-list", () -> new AccessListWindow<>(engine, gate).show());
-        shoot(out, "expiry-warning", () -> ExpiryWarningWindow.show(engine, gate, new LeaseEngine.Expiring("g1", "netrec", Instant.now().plusSeconds(290))));
+        shoot(out, "access-list", () -> new AccessListWindow<>(engine, gate, brand).show());
+        shoot(out, "expiry-warning", () -> ExpiryWarningWindow.show(engine, gate, brand, new LeaseEngine.Expiring("g1", "netrec", Instant.now().plusSeconds(290))));
         shoot(out, "existing-browser", () -> new ExistingBrowserDialog().build(new ExistingBrowser(ProcessHandle.current().pid(), "vivaldi.exe", 1), new java.util.concurrent.CompletableFuture<>()));
         System.exit(0);
     }
@@ -67,7 +68,7 @@ public class UiSnapshotTrial {
     static void shoot(Path out, String name, Runnable open) throws Exception {
         var done = new CountDownLatch(1);
         Platform.runLater(open);
-        Thread.sleep(1200);
+        Thread.sleep(2600);
         Platform.runLater(() -> {
             var stages = Window.getWindows().stream().filter(Window::isShowing).toList();
             var w = (Stage) stages.getLast();

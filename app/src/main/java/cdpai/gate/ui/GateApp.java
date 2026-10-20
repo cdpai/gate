@@ -65,13 +65,14 @@ public final class GateApp extends Application {
 
         var browser = new BrowserSupervisor(settings);
         var rules = new CdpRules(browser.profiles());
-        var engine = new LeaseEngine<CdpScope>(rules, new BlanketModeApproval<>(new FxApproval<>(passphraseGate, rules), passphraseGate),
+        var brand = new Brand("cdpgate", "#2e6da8", GateIcon.image(GateApp.class, "brand.png", "#2e6da8"));
+        var engine = new LeaseEngine<CdpScope>(rules, new BlanketModeApproval<>(new FxApproval<>(passphraseGate, rules, brand), passphraseGate),
             new KeyedAppStore<>(keyedStorePath, rules));
-        engine.trustApproval(new FxTrust<>(passphraseGate, rules));
-        engine.onExpiring(e -> Platform.runLater(() -> ExpiryWarningWindow.show(engine, passphraseGate, e)));
+        engine.trustApproval(new FxTrust<>(passphraseGate, rules, brand));
+        engine.onExpiring(e -> Platform.runLater(() -> ExpiryWarningWindow.show(engine, passphraseGate, brand, e)));
         var server = new GateServer(browser, settings.pipe(), engine);
         var status = new TrayStatus(browser, engine);
-        var tray = new TrayShell<>(primaryStage, engine, passphraseGate, GateIcon.image(), status::line);
+        var tray = new TrayShell<>(primaryStage, engine, passphraseGate, brand, status::line);
         var startItem = TrayShell.item("Start Vivaldi under cdpgate", () -> startBrowser(browser));
         tray.addItem(startItem)
             .onRefresh(() -> { var stopped = browser.state() == BrowserSupervisor.State.STOPPED; if (startItem.isDisable() == stopped) startItem.setDisable(!stopped); })
