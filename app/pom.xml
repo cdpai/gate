@@ -157,7 +157,17 @@
                             <icon>${project.basedir}/src/main/jr/cdpgate.ico</icon>
                             <javaVersion>25+</javaVersion>
                             <jvmMode>dll</jvmMode>
+                            <!-- Memory: without a cap the JVM may take a quarter of RAM; G1 hands idle heap back every 5 min. -->
                             <vmArgs>
+                                <vmArg>-Xms32m</vmArg>
+                                <vmArg>-Xmx512m</vmArg>
+                                <vmArg>-XX:MaxMetaspaceSize=192m</vmArg>
+                                <vmArg>-XX:ReservedCodeCacheSize=96m</vmArg>
+                                <vmArg>-XX:ParallelGCThreads=4</vmArg>
+                                <vmArg>-XX:ConcGCThreads=1</vmArg>
+                                <vmArg>-XX:G1PeriodicGCInterval=300000</vmArg>
+                                <vmArg>-XX:G1PeriodicGCSystemLoadThreshold=0</vmArg>
+                                <vmArg>-XX:-G1PeriodicGCInvokesConcurrent</vmArg>
                                 <vmArg>--enable-native-access=ALL-UNNAMED</vmArg>
                             </vmArgs>
                             <jarUrl>https://github.com/cdpai/gate/releases/download/v${project.version}/cdpgate.jar</jarUrl>
