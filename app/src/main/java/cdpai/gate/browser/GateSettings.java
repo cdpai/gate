@@ -9,8 +9,9 @@ import com.fasterxml.jackson.dataformat.toml.TomlMapper;
 /// user's real profile set. Only a trial passes a scratch folder here.
 public record GateSettings(String browserExe, String userDataDir, String pipe) {
 
+    /// Vivaldi's own per-user install location; a machine that has it elsewhere says so in settings.toml.
     static final String DEFAULT_EXE = cdpai.gate.client.GatePlatform.WINDOWS
-        ? "C:\\Program Files\\Vivaldi\\Application\\vivaldi.exe"
+        ? Path.of(String.valueOf(System.getenv("LOCALAPPDATA")), "Vivaldi", "Application", "vivaldi.exe").toString()
         : "/Applications/Vivaldi.app/Contents/MacOS/Vivaldi";
 
     public static Path defaultPath() {
