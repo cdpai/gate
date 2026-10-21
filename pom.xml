@@ -17,7 +17,7 @@
         <maven.compiler.release>25</maven.compiler.release>
         <picocli.version>4.7.6</picocli.version>
         <jackson.version>2.21.2</jackson.version>
-        <leasegate.version>0.2-SNAPSHOT</leasegate.version>
+        <leasegate.version>0.2</leasegate.version>
         <javafx.version>27</javafx.version>
         <luvjfx.version>1.0</luvjfx.version>
     </properties>
