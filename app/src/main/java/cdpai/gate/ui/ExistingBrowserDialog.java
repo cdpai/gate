@@ -1,5 +1,6 @@
 package cdpai.gate.ui;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import javafx.animation.*;
@@ -12,6 +13,7 @@ import javafx.scene.layout.VBox;
 import cdpai.gate.browser.BrowserSupervisor.ExistingBrowserPrompt;
 import cdpai.gate.browser.ExistingBrowser;
 import leasegate.frame.Brand;
+import leasegate.frame.Arming;
 import leasegate.frame.GateFrame;
 import leasegate.ui.ApprovalParts;
 
@@ -42,6 +44,10 @@ public final class ExistingBrowserDialog implements ExistingBrowserPrompt {
         stage.setOnHidden(x -> { watch.stop(); result.complete(Choice.CANCEL); });
         Runnable closeAll = () -> { result.complete(Choice.CLOSE_WINDOWS); stage.close(); };
         var mac = !cdpai.gate.client.GatePlatform.WINDOWS;
+        var close = ApprovalParts.button(mac ? "F2  Quit Vivaldi for me" : "F2  Close the windows for me", "#8a4b00", closeAll);
+        var leave = ApprovalParts.button("Esc  Leave Vivaldi running, don't start cdpgate's", "#777", stage::close);
+        var armingLine = ApprovalParts.line(" ", ApprovalParts.AMBER);
+        var arming = new Arming(List.of(close, leave), armingLine);
         var root = new VBox(10,
             ApprovalParts.line(mac ? "Vivaldi is running without cdpgate. Please quit it: Vivaldi menu, Quit Vivaldi (Cmd+Q)."
                 : "Vivaldi is running without cdpgate. Please quit it: Vivaldi menu, File, Exit.", "#333"),
@@ -52,11 +58,11 @@ public final class ExistingBrowserDialog implements ExistingBrowserPrompt {
                     + " anything typed into a page and not yet submitted is lost.", "#8a4b00")
                 : ApprovalParts.small("Vivaldi has " + b.windowCount() + " window(s) open. Letting cdpgate close them from outside"
                 + " is less safe: with several windows only the last one is restored, and Vivaldi may keep running with no window.", "#8a4b00"),
-            new HBox(8, ApprovalParts.button(mac ? "F2  Quit Vivaldi for me" : "F2  Close the windows for me", "#8a4b00", closeAll),
-                ApprovalParts.button("Esc  Leave Vivaldi running, don't start cdpgate's", "#777", stage::close)));
+            new HBox(8, close, leave), armingLine);
         root.setPadding(new Insets(14));
         root.setPrefWidth(540);
         var scene = frame.scene(root);
+        arming.guard(scene);
         scene.setOnKeyPressed(k -> {
             if (k.getCode() == KeyCode.F2) closeAll.run();
             else if (k.getCode() == KeyCode.ESCAPE) stage.close();
