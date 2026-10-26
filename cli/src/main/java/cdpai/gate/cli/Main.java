@@ -8,7 +8,7 @@ import picocli.CommandLine.Command;
 @Command(name = "cdpg", mixinStandardHelpOptions = true, version = "cdpg 0.2",
     description = {"Gated CDP access through cdpgate's pipe.",
         "Start with `cdpg profiles`, then ask for only what you need: cdpg send Target.getTargets --profiles Work --domains youtube.com"},
-    subcommands = {ProfilesCommand.class, GrantsCommand.class, ApproveCommand.class, TrustCommand.class, SendCommand.class, ListenCommand.class},
+    subcommands = {ProfilesCommand.class, GrantsCommand.class, ApproveCommand.class, TrustCommand.class, SendCommand.class, ListenCommand.class, AdminCommand.class, InventoryCommand.class},
     footerHeading = "%nFor an agent session:%n",
     footer = {
         "  cdpgate owns the browser over a pipe; there is no debug port, so curl to localhost:<port> will not work.",
@@ -25,7 +25,9 @@ import picocli.CommandLine.Command;
         "  (Storage.getCookies reads whichever profile was used last, and is refused when that is not yours.)",
         "  Background tabs Vivaldi has not loaded yet (it restores them lazily) or has frozen attach but never answer;",
         "  use a visible tab, or send Target.activateTarget first (it brings the tab forward). --timeout ends a stuck call.",
-        "  cdpg grants lists what is approved now (no approval). Exit 3 = refused or denied; the message says why."})
+        "  cdpg grants lists what is approved now (no approval). Exit 3 = refused or denied; the message says why.",
+        "  RAM trouble (Vivaldi)? cdpg admin memory | tabs | discard | extensions: RAM per process, idle tabs, hibernate them, extensions off. Details: cdpg admin --help",
+        "  About to write a browser script or tool? cdpg inventory list --match <word> first: what earlier sessions already built. Record yours with cdpg inventory add. See cdpg inventory --help"})
 public final class Main implements Runnable {
 
     public static void main(String[] args) { System.exit(new CommandLine(new Main()).execute(args)); }

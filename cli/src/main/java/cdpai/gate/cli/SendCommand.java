@@ -20,6 +20,7 @@ final class SendCommand implements Callable<Integer> {
 
     @Parameters(index = "0", description = "CDP method, e.g. Target.getTargets") String method;
     @Parameters(index = "1", arity = "0..1", defaultValue = "{}", description = "params as a JSON object") String paramsJson;
+    @Option(names = "--params-stdin", description = "read the params JSON from standard input, not the argument: keeps a secret (and any value with spaces or quotes) off the command line") boolean paramsStdin;
     @Option(names = "--target", description = "targetId (from Target.getTargets) to run the method in: attaches, sends, detaches") String targetId;
     @Option(names = "--timeout", defaultValue = "15000", description = "ms to wait for the reply, counted after approval (default: ${DEFAULT-VALUE})")
     long timeoutMs;
@@ -28,7 +29,8 @@ final class SendCommand implements Callable<Integer> {
     @Override public Integer call() throws Exception {
         var mapper = new ObjectMapper();
         var req = mapper.createObjectNode().put("id", 1).put("method", method);
-        req.set("params", mapper.readTree(paramsJson));
+        var json = paramsStdin ? new String(System.in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8).strip() : paramsJson;
+        req.set("params", mapper.readTree(json.isEmpty() ? "{}" : json));
         try (var client = gate.connect()) {
             System.err.println("cdpg: approved " + client.grant());
             // The clock covers the attach too: a tab that never answers must not hang the command.

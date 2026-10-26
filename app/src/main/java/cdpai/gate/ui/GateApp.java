@@ -76,7 +76,9 @@ public final class GateApp extends Application {
         var status = new TrayStatus(browser, engine);
         var tray = new TrayShell<>(primaryStage, engine, passphraseGate, brand, status::line);
         var startItem = TrayShell.item("Start Vivaldi under cdpgate", () -> startBrowser(browser, brand));
+        var memory = new MemoryWindow(brand, browser::hub);
         tray.addItem(startItem)
+            .addItem(TrayShell.item("Browser memory…", memory::show))
             .onRefresh(() -> { var stopped = browser.state() == BrowserSupervisor.State.STOPPED; if (startItem.isDisable() == stopped) startItem.setDisable(!stopped); })
             .describe("guards the browser: its DevTools link", "https://github.com/cdpai/gate")
             .quit("Quit cdpgate (Vivaldi closes too)", browser::quitBrowser)
