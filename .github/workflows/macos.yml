@@ -65,10 +65,10 @@ jobs:
           test "$want" = "$(shasum -a 256 ~/.local/bin/cdpg | cut -d' ' -f1)"
       - name: cdpg runs (fetches its jar from the release, checked against the sha256 it carries)
         run: ~/.local/bin/cdpg --help
-      - name: update checks name this release
+      - name: update checks say this release is current (run after the site serves the new update files)
         run: |
           v=${TAG#v}
           ~/.local/bin/cdpgate -Xjr:update-check -Xjr:batch | tee "$RUNNER_TEMP/u1.json"
-          grep -q "\"version\":\"$v\"" "$RUNNER_TEMP/u1.json"
+          grep -q "\"status\":\"current\",\"version\":\"$v\"" "$RUNNER_TEMP/u1.json"
           ~/.local/bin/cdpg -Xjr:update-check -Xjr:batch | tee "$RUNNER_TEMP/u2.json"
-          grep -q "\"version\":\"$v\"" "$RUNNER_TEMP/u2.json"
+          grep -q "\"status\":\"current\",\"version\":\"$v\"" "$RUNNER_TEMP/u2.json"
