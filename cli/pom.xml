@@ -105,6 +105,8 @@
                         </executions>
                         <configuration>
                             <name>cdpg</name>
+                            <!-- cdpg carries no natives, so one jar serves every platform: the Windows exe and a universal macOS binary from one run -->
+                            <platforms><platform>windows</platform><platform>macos</platform></platforms>
                             <appId>io.github.cdpai:cdpg</appId>
                             <fileDescription>cdpg</fileDescription>
                             <productName>cdpg</productName>
@@ -124,8 +126,10 @@
                                 <vmArg>-XX:ReservedCodeCacheSize=24m</vmArg>
                                 <vmArg>--enable-native-access=ALL-UNNAMED</vmArg>
                             </vmArgs>
-                            <jarUrl>https://github.com/cdpai/gate/releases/download/v${project.version}/cdpg.jar</jarUrl>
-                            <updateUrl>https://github.com/cdpai/gate/releases/latest/download/cdpg.update.json</updateUrl>
+                            <appVersion>${jrexe.version}</appVersion>
+                            <jarUrl>${jrexe.release}/cdpg-{sha8}.jar</jarUrl>
+                            <updateUrl>${jrexe.updates}/cdpg.json</updateUrl>
+                            <updateChannel>${jrexe.channel}</updateChannel>
                         </configuration>
                     </plugin>
                 </plugins>

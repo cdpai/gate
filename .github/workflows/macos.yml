@@ -1,0 +1,74 @@
+# macOS proof for cdpgate and cdpg, on GitHub's Mac runners (this machine has no Mac).
+# - build: from a clean ~/.m2, the jrexe profile builds the macOS binaries, and cdpg answers.
+# - release: installs a published release the way a person would (curl, then -Xjr:install) and checks
+#   it against SHA256SUMS and the update file. Run it by hand with the tag, after release.ps1 -Publish.
+# Publishes nothing and needs no secrets.
+name: macos
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: a release tag to install and check (for example v0.2.2-beta.1); empty runs only the build
+        default: ''
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: build every module and the macOS binaries
+        run: |
+          sw_vers; uname -m
+          mvn -B -ntp -DskipTests -Djrexe -Djr.platforms=macos -Djr.macosArchitecture=arm64 -Dcdpgate.aot=false install
+          ls -l app/target/jr/macos cli/target/jr/macos
+          file app/target/jr/macos/cdpgate cli/target/jr/macos/cdpg
+      - name: cdpg answers
+        run: cli/target/jr/macos/cdpg --help
+
+  release:
+    if: github.event_name == 'workflow_dispatch' && inputs.tag != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    env:
+      TAG: ${{ inputs.tag }}
+      BASE: https://github.com/cdpai/gate/releases/download/${{ inputs.tag }}
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: install with the online commands from the release notes
+        run: |
+          sw_vers; uname -m
+          mkdir -p ~/.local/bin
+          curl -fLo /tmp/cdpgate "$BASE/cdpgate-macos-$(uname -m)" && chmod +x /tmp/cdpgate && /tmp/cdpgate -Xjr:install
+          curl -fLo ~/.local/bin/cdpg "$BASE/cdpg" && chmod +x ~/.local/bin/cdpg
+          ls -l ~/.local/bin ~/Applications
+      - name: the binaries match SHA256SUMS
+        run: |
+          curl -fsSLo "$RUNNER_TEMP/SHA256SUMS" "$BASE/SHA256SUMS"
+          want=$(grep "  cdpgate-macos-$(uname -m)$" "$RUNNER_TEMP/SHA256SUMS" | cut -d' ' -f1)
+          got=$(shasum -a 256 /tmp/cdpgate | cut -d' ' -f1)
+          test -n "$want" && test "$want" = "$got"
+          want=$(grep "  cdpg$" "$RUNNER_TEMP/SHA256SUMS" | cut -d' ' -f1)
+          test "$want" = "$(shasum -a 256 ~/.local/bin/cdpg | cut -d' ' -f1)"
+      - name: cdpg runs (fetches its jar from the release, checked against the sha256 it carries)
+        run: ~/.local/bin/cdpg --help
+      - name: update checks name this release
+        run: |
+          v=${TAG#v}
+          ~/.local/bin/cdpgate -Xjr:update-check -Xjr:batch | tee "$RUNNER_TEMP/u1.json"
+          grep -q "\"version\":\"$v\"" "$RUNNER_TEMP/u1.json"
+          ~/.local/bin/cdpg -Xjr:update-check -Xjr:batch | tee "$RUNNER_TEMP/u2.json"
+          grep -q "\"version\":\"$v\"" "$RUNNER_TEMP/u2.json"

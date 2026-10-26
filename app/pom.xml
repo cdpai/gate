@@ -134,13 +134,6 @@
                     <name>jrexe</name>
                 </property>
             </activation>
-            <properties>
-                <!-- The exe's own version. release.ps1 passes X.Y.Z-label for a beta, which follows the beta channel only. -->
-                <jrexe.version>${project.version}</jrexe.version>
-                <jrexe.channel>stable</jrexe.channel>
-                <jrexe.release>https://github.com/cdpai/gate/releases/download/v${jrexe.version}</jrexe.release>
-                <jrexe.updates>https://leasegate.github.io/cdpgate/update</jrexe.updates>
-            </properties>
             <build>
                 <plugins>
                     <plugin>
@@ -168,6 +161,7 @@
                             <icon>${project.basedir}/src/main/jr/cdpgate.ico</icon>
                             <javaVersion>25+</javaVersion>
                             <jvmMode>dll</jvmMode>
+                            <aot>${cdpgate.aot}</aot>
                             <!-- Memory: capped, and given back when idle. Serial shrinks the heap after a full collection,
                                  and leasegate's idle trim (after 2 quiet minutes) empties the working set. Browser
                                  traffic may still spike up to the cap. -->
