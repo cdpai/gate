@@ -10,6 +10,8 @@
 
     <artifactId>cdpai-gate-client</artifactId>
     <packaging>jar</packaging>
+    <name>cdpai-gate-client</name>
+    <description>Client for cdpgate: connect to the gate over its pipe, pass the human approval, then speak plain CDP.</description>
 
     <dependencies>
         <dependency>
