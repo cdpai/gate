@@ -92,7 +92,13 @@ public final class CdpHub {
 
     void answerWhenOpened(ConsumerLink from, ObjectNode request, CompletableFuture<String> opening) {
         opening.whenComplete((targetId, err) -> {
-            if (err != null || targetId == null) { send(from, errorReply(request, "cdpgate: the tab could not be opened in that profile")); return; }
+            if (err != null || targetId == null) {
+                var cause = err instanceof CompletionException && err.getCause() != null ? err.getCause() : err;
+                var why = cause != null && cause.getMessage() != null && cause.getMessage().startsWith("cdpgate:") ? cause.getMessage()
+                    : "cdpgate: the tab could not be opened in that profile";
+                send(from, errorReply(request, why));
+                return;
+            }
             var reply = mapper.createObjectNode().put("id", request.path("id").asLong());
             reply.putObject("result").put("targetId", targetId);
             send(from, reply);

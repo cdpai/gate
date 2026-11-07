@@ -85,7 +85,7 @@ final class ConnectionHandler {
             case Outcome.Refused(var error, var hint) -> deny(error, hint);
             case Outcome.Allowed(var grant) -> {
                 var effective = grant.scope().narrowedTo(requested);
-                openProfiles(effective);
+                if (refuseUnbound(effective)) return;
                 var link = join(hub, Kind.ATTESTED, grant.id(), label, effective);
                 if (v2) io.writeFrame(GateReplies.approved("attested", grant.expiresAt(), effective, server.browser.profiles()));
                 pump(hub, link, firstCdpFrame);
@@ -113,7 +113,7 @@ final class ConnectionHandler {
             case Outcome.Refused(var error, var hint) -> deny(error, hint);
             case Outcome.Allowed(var app) -> {
                 var effective = app.scope().narrowedTo(requested);
-                openProfiles(effective);
+                if (refuseUnbound(effective)) return;
                 var link = join(hub, Kind.KEYED, app.id(), label, effective);
                 io.writeFrame(GateReplies.approved("keyed", app.expiresAt(), effective, server.browser.profiles()));
                 pump(hub, link, null);
@@ -128,10 +128,20 @@ final class ConnectionHandler {
         return link;
     }
 
-    void openProfiles(CdpScope scope) {
-        if (scope.profiles() == null) return;
+    /// Returns null when every requested profile is bound, else the name of the first one that could not be.
+    String openProfiles(CdpScope scope) {
+        if (scope.profiles() == null) return null;
         for (var dir : scope.profiles())
-            if (server.browser.profiles().contextOf(dir).isEmpty()) server.browser.openProfile(dir);
+            if (server.browser.profiles().contextOf(dir).isEmpty() && !server.browser.openProfile(dir)) return dir;
+        return null;
+    }
+
+    boolean refuseUnbound(CdpScope effective) {
+        var dir = openProfiles(effective);
+        if (dir == null) return false;
+        deny("profile " + server.browser.profiles().nameOf(dir) + " could not be bound to a browser context",
+            "it is loaded or could not be opened; nothing was opened for this request. See `cdpg profiles`");
+        return true;
     }
 
     void pump(CdpHub hub, ConsumerLink link, String firstCdpFrame) {

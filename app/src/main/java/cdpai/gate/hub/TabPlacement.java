@@ -36,7 +36,14 @@ public final class TabPlacement {
     CompletableFuture<String> place(ObjectNode msg, CdpScope scope) {
         if (!msg.path("method").asText("").equals("Target.createTarget") || !(msg.path("params") instanceof ObjectNode p)) return null;
         var ctx = p.path("browserContextId").asText(null);
-        if (ctx == null && scope.profilesScoped() && !scope.profiles().isEmpty()) ctx = contextOf.apply(scope.profiles().getFirst());
+        if (ctx == null && scope.profilesScoped() && !scope.profiles().isEmpty()) {
+            var dir = scope.profiles().getFirst();
+            ctx = contextOf.apply(dir);
+            // PRP 30: passing this upstream puts the tab in the browser's default context, outside the
+            // caller's view, and the caller is left with a targetId it is then refused on.
+            if (ctx == null) return CompletableFuture.failedFuture(new IllegalStateException("cdpgate: profile " + dir
+                + " is not bound to a browser context, so no tab was opened in it (see `cdpg profiles`; nothing was created)"));
+        }
         if (ctx == null) return null;
         if (ctx.equals(defaultContext.get())) { p.put("browserContextId", ctx); return null; }
         return openByHandoff.apply(dirOf.apply(ctx), p.path("url").asText("about:blank"));

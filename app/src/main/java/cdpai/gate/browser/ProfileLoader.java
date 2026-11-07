@@ -41,6 +41,22 @@ final class ProfileLoader {
 
     synchronized boolean open(String dir) {
         if (profiles.contextOf(dir).isPresent()) return true;
+        // PRP 30: a profile the disk shows as loaded needs no window. A URL-less hand-off to it only opens a
+        // start page and then waits for a context that never appears. Bind it from the evidence, or fail
+        // without opening anything.
+        try {
+            var loaded = LoadedProfiles.scan(settings.effectiveUserDataDir(), java.util.List.of(dir));
+            if (loaded != null && loaded.contains(dir)) {
+                var unbound = inventory.contexts().stream().filter(c -> !profiles.isBound(c)).toList();
+                if (unbound.size() == 1) {
+                    profiles.bind(unbound.getFirst(), dir, false);
+                    System.err.println("cdpgate: profile " + profiles.nameOf(dir) + " is loaded; bound to context " + unbound.getFirst() + " without opening a window");
+                    return true;
+                }
+                System.err.println("cdpgate: profile " + profiles.nameOf(dir) + " is loaded but " + unbound.size() + " contexts are unbound; not opening a window");
+                return false;
+            }
+        } catch (Exception e) { System.err.println("cdpgate: could not check whether " + dir + " is loaded: " + e.getMessage()); }
         handingOff = true;
         try {
             var before = new HashSet<>(inventory.contexts());
@@ -129,6 +145,10 @@ final class ProfileLoader {
     /// has loaded, twice running, is wrong (the profile closed and its context was reused, or an old
     /// guess) and is dropped; every unbound context is then given another chance to be identified.
     void reconcile() {
+        try { reconcileOnce(); } catch (Exception e) { System.err.println("cdpgate: profile check failed: " + e); }
+    }
+
+    private void reconcileOnce() {
         if (handingOff || startupHold) return;
         var loaded = LoadedProfiles.scan(settings.effectiveUserDataDir(), profiles.profiles().stream().map(BrowserProfile::dir).toList());
         if (loaded == null) return;
