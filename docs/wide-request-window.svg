@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="330" viewBox="0 0 680 330" font-family="Segoe UI, Arial, sans-serif">
+<rect width="680" height="330" rx="8" fill="#f4f4f4" stroke="#9a9a9a"/>
+<rect width="680" height="30" rx="8" fill="#1f3a5f"/>
+<text x="14" y="20" font-size="13" fill="#fff">CDPGATE: request from cdpg</text>
+<text x="14" y="58" font-size="15" font-weight="bold" fill="#111">claude.exe</text>
+<rect x="100" y="44" width="92" height="18" rx="3" fill="#b3261e"/>
+<text x="108" y="57" font-size="10" fill="#fff">NOT APPROVED</text>
+<text x="14" y="92" font-size="9" fill="#777">REQUESTED</text>
+<text x="14" y="110" font-size="12" font-weight="bold" fill="#b3261e">profiles: ALL, 3 loaded now, and any opened later</text>
+<text x="14" y="128" font-size="12" font-weight="bold" fill="#b3261e">websites: ALL</text>
+<text x="14" y="146" font-size="12" font-weight="bold" fill="#b3261e">cookies: every site's cookies, in every profile</text>
+<text x="14" y="164" font-size="12" fill="#666">asked for: not specified</text>
+<text x="14" y="186" font-size="12" fill="#b3261e">This request reaches everything this gate guards. Approving needs the passphrase.</text>
+<text x="14" y="212" font-size="12" fill="#b3261e">An unscoped request (every profile, every website) is held to 1 hour at most.</text>
+<rect x="14" y="232" width="120" height="32" rx="4" fill="#2e7d32"/><text x="34" y="253" font-size="13" fill="#fff">F2  Approve</text>
+<rect x="142" y="232" width="110" height="32" rx="4" fill="#b3261e"/><text x="164" y="253" font-size="13" fill="#fff">Esc  Deny</text>
+<text x="14" y="296" font-size="10" fill="#aaa">Illustration. The more an agent asks for, the redder the window and the shorter the approval; asking for less earns more time.</text>
+</svg>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="170" viewBox="0 0 440 170" font-family="Segoe UI, Arial, sans-serif">
+<rect width="440" height="170" rx="8" fill="#f4f4f4" stroke="#9a9a9a"/>
+<rect width="440" height="30" rx="8" fill="#1f3a5f"/>
+<text x="14" y="20" font-size="13" fill="#fff">CDPGATE: approval ending</text>
+<text x="14" y="56" font-size="13" font-weight="bold" fill="#111">claude.exe loses access in 4:52</text>
+<text x="14" y="76" font-size="10" fill="#555">Extending keeps the same anchor and scope, and adds time up to the cap this approval first earned.</text>
+<rect x="14" y="92" width="110" height="30" rx="4" fill="#2e6da8"/><text x="34" y="112" font-size="13" fill="#fff">F2  Extend</text>
+<rect x="132" y="92" width="150" height="30" rx="4" fill="#777"/><text x="150" y="112" font-size="13" fill="#fff">Esc  Let it expire</text>
+<text x="14" y="152" font-size="10" fill="#aaa">Illustration.</text>
+</svg>

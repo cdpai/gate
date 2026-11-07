@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="330" viewBox="0 0 760 330" font-family="Consolas, 'Courier New', monospace">
+<rect width="760" height="330" rx="8" fill="#1b1f27"/>
+<rect width="760" height="26" rx="8" fill="#2b303b"/>
+<circle cx="16" cy="13" r="5" fill="#ff5f56"/><circle cx="34" cy="13" r="5" fill="#ffbd2e"/><circle cx="52" cy="13" r="5" fill="#27c93f"/>
+<g font-size="13" fill="#d6dbe4">
+<text x="16" y="52" fill="#7fd1ae">$ cdpg profiles</text>
+<text x="16" y="72">Work (Profile 1)   loaded</text>
+<text x="16" y="90">Home (Default)     not loaded</text>
+<text x="16" y="122" fill="#7fd1ae">$ cdpg approve --profiles Work --domains youtube.com --minutes 120</text>
+<text x="16" y="142" fill="#e5c07b">  (waiting: a human is looking at the approval window)</text>
+<text x="16" y="162">{"ok":true,"mode":"attested","profiles":["Work"],"domains":["youtube.com"],...}</text>
+<text x="16" y="194" fill="#7fd1ae">$ cdpg send Target.getTargets --profiles Work --domains youtube.com</text>
+<text x="16" y="214">cdpg: approved {"mode":"attested","expiresAt":"..."}</text>
+<text x="16" y="232">{"id":1,"result":{"targetInfos":[{"targetId":"A1B2...","url":"https://www.youtube.com/..."}]}}</text>
+<text x="16" y="264" fill="#7fd1ae">$ cdpg send Target.getTargets --profiles Home</text>
+<text x="16" y="284" fill="#e06c75">cdpg: profile Home is outside this approval</text>
+</g>
+<text x="16" y="316" font-size="10" fill="#667">Illustration. Output shortened.</text>
+</svg>

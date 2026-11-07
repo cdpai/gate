@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="560" viewBox="0 0 680 560" font-family="Segoe UI, Arial, sans-serif">
+<rect width="680" height="560" rx="8" fill="#f4f4f4" stroke="#9a9a9a"/>
+<rect width="680" height="30" rx="8" fill="#1f3a5f"/>
+<text x="14" y="20" font-size="13" fill="#fff">CDPGATE: request from cdpg</text>
+<text x="14" y="58" font-size="15" font-weight="bold" fill="#111">claude.exe</text>
+<rect x="100" y="44" width="92" height="18" rx="3" fill="#b3261e"/>
+<text x="108" y="57" font-size="10" fill="#fff">NOT APPROVED</text>
+<text x="14" y="78" font-size="11" fill="#666">app "cdpg" · PID 18244 · identified by the kernel</text>
+<text x="14" y="98" font-size="9" fill="#777">FULL COMMAND</text>
+<rect x="14" y="102" width="652" height="34" fill="#fff" stroke="#ccc"/>
+<text x="20" y="123" font-size="11" font-family="Consolas, monospace" fill="#222">cdpg send Target.getTargets --profiles Work --domains youtube.com</text>
+<text x="14" y="154" font-size="9" fill="#777">WORKING DIRECTORY</text>
+<rect x="14" y="158" width="652" height="26" fill="#fff" stroke="#ccc"/>
+<text x="20" y="176" font-size="11" font-family="Consolas, monospace" fill="#222">C:\work\projects\video-notes</text>
+<text x="14" y="204" font-size="9" fill="#777">REQUESTED</text>
+<text x="14" y="221" font-size="12" fill="#2e7d32">profiles: Work (Profile 1)</text>
+<text x="14" y="238" font-size="12" fill="#2e7d32">websites: youtube.com</text>
+<text x="14" y="255" font-size="12" fill="#b26a00">cookies: every site's cookies in that profile (a profile shares one cookie jar; websites limit tabs only)</text>
+<text x="14" y="272" font-size="12" fill="#666">asked for: 2 hours</text>
+<text x="14" y="296" font-size="11" fill="#333">Choose how far up the process tree this approval reaches. Broader anchors allow shorter durations. The approval ends when the anchor exits.</text>
+<rect x="14" y="304" width="652" height="96" fill="#fff" stroke="#ccc"/>
+<text x="22" y="322" font-size="11" font-weight="bold" fill="#555">PROGRAM</text>
+<text x="250" y="322" font-size="11" font-weight="bold" fill="#555">LONGEST</text>
+<text x="380" y="322" font-size="11" font-weight="bold" fill="#555">WHY</text>
+<text x="22" y="344" font-size="11" fill="#222">cdpg.exe</text><text x="250" y="344" font-size="11" fill="#222">4 h</text><text x="380" y="344" font-size="11" fill="#666">ends when this command exits</text>
+<rect x="15" y="350" width="650" height="20" fill="#d9ecd9"/>
+<text x="22" y="364" font-size="11" font-weight="bold" fill="#111">claude.exe  (suggested)</text><text x="250" y="364" font-size="11" fill="#111">4 h</text><text x="380" y="364" font-size="11" fill="#666">the agent session</text>
+<text x="22" y="390" font-size="11" fill="#222">cmd.exe</text><text x="250" y="390" font-size="11" fill="#222">1 h</text><text x="380" y="390" font-size="11" fill="#666">a shell: everything started from it</text>
+<g font-size="12">
+<rect x="14" y="412" width="64" height="26" rx="13" fill="#e4e4e4" stroke="#aaa"/><text x="32" y="429" fill="#333">30 m</text>
+<rect x="86" y="412" width="64" height="26" rx="13" fill="#e4e4e4" stroke="#aaa"/><text x="110" y="429" fill="#333">1 h</text>
+<rect x="158" y="412" width="64" height="26" rx="13" fill="#2e6da8"/><text x="182" y="429" fill="#fff">2 h</text>
+<rect x="230" y="412" width="64" height="26" rx="13" fill="#e4e4e4" stroke="#aaa"/><text x="254" y="429" fill="#333">4 h</text>
+</g>
+<rect x="14" y="456" width="120" height="32" rx="4" fill="#2e7d32"/><text x="34" y="477" font-size="13" fill="#fff">F2  Approve</text>
+<rect x="142" y="456" width="110" height="32" rx="4" fill="#b3261e"/><text x="164" y="477" font-size="13" fill="#fff">Esc  Deny</text>
+<text x="14" y="512" font-size="11" fill="#777">↑/↓ anchor · ←/→ duration · F2 approve · Esc deny</text>
+<text x="14" y="540" font-size="10" fill="#aaa">Illustration. Keys are ignored for the first moments, and approving takes F2, never a letter or Enter.</text>
+</svg>
