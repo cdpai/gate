@@ -69,6 +69,8 @@ cdpg send Runtime.evaluate '{"expression":"document.title"}' --target <tabId> --
 
 `cdpg profiles` and `cdpg grants` need no approval. Everything else does. Exit code 3 means refused or denied, and the message says why. `cdpg send --params-stdin` keeps a secret off the command line.
 
+A profile has to be tied to one of the browser's contexts before an agent can use it. If the profile is already open in the browser, cdpgate recognises that and ties it without opening anything. If it cannot tell which context belongs to a profile, it says so and refuses: the connection is refused with a message naming the profile, and `Target.createTarget` for that profile fails the same way and creates no tab. It does not open empty windows, and it does not place a tab where the approved scope cannot see it. `cdpg profiles` shows which profiles are loaded.
+
 Because there is no debug port, `curl http://localhost:9222` does not work, and that is intended. Anything that needs the browser goes through `cdpg` or the client library, so every use of it passes the approval window.
 
 The websites you list limit which tabs the agent can see and drive. They do not limit cookies: a profile has one cookie jar, and an approval for a profile reaches all of it. If that matters, approve a profile that holds only what the agent should touch.
